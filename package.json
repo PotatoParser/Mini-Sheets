@@ -1,0 +1,20 @@
+{
+  "name": "simplesheets",
+  "version": "1.0.0",
+  "description": "Simplified Google Sheets",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "Google",
+    "Sheets",
+    "Spreadsheets",
+    "CSV"
+  ],
+  "author": "Wilson Nguyen",
+  "license": "MIT",
+  "dependencies": {
+    "googleapis": "^38.0.0"
+  }
+}
