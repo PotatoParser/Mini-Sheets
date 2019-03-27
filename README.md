@@ -1,23 +1,23 @@
-# SimpleSheets
-Simplifying Google Sheets
+# Mini Sheets
+Minified and simplified Google Sheets
 
 ## Example Usage
 ```javascript
-const sSheets = require("simplesheets");
-const SimpleSheets = sSheets(PATH_TO_OAUTH_OBJECT, PATH_TO_TOKEN_OBJECT);
-SimpleSheets.create({
+const mSheets = require("minisheets");
+const MiniSheets = mSheets(PATH_TO_OAUTH_OBJECT, PATH_TO_TOKEN_OBJECT);
+MiniSheets.create({
     spreadsheetTitle:{
         sheetTitle:[["hello"]]
     }
-}).then(simplesheet=>console.log(simplesheet)).catch(e=>console.log(e));
+}).then(minisheet=>console.log(minisheet)).catch(e=>console.log(e));
 ```
 
 ## Table of Contents
-+ [SimpleSheets](#SimpleSheets)
++ [MiniSheets](#MiniSheets)
     + [Initialization](#Initialization)
 + [Data format (worksheetData)](#Data-format-worksheetData)
-+ [SimpleSheet Object](#SimpleSheet-Object)
-+ [SimpleSheets Methods [Asynchronous]](#SimpleSheets-Methods-[Asynchronous])
++ [MiniSheet Object](#MiniSheet-Object)
++ [MiniSheets Methods [Asynchronous]](#MiniSheets-Methods-[Asynchronous])
     + [create(worksheetData)](#createworksheetData)
     + [createFromCSV(title, [csv,...])](#createFromCSVtitle-csv)
     + [get(id)](#getid)
@@ -26,10 +26,10 @@ SimpleSheets.create({
     + [remove(id)](#removeid-folderId)
     + [move(id, folderId)](#moveid-folderId)
 
-## SimpleSheets
+## MiniSheets
 ---
 ### Initialization
-> Initialize the SimpleSheets object by authenticating the user
+> Initialize the MiniSheets object by authenticating the user
 
 Arguments:
 + `OAUTH`<**String**\|**Object**>: contains Google's Oauth2.0 object
@@ -57,10 +57,10 @@ Arguments:
 ```
 
 Return:
-+ <[**SimpleSheets**](#SimpleSheets)>
++ <[**MiniSheets**](#MiniSheets)>
 
 ```javascript
-const SimpleSheets = simplesheets(<OAUTH Object>, <Access Token>);
+const MiniSheets = minisheets(<OAUTH Object>, <Access Token>);
 ```
 
 ---
@@ -87,7 +87,7 @@ Accepted cell values:
 
 ---
 
-## SimpleSheet Object
+## MiniSheet Object
 ```javascript
 {
     id: stringID,
@@ -98,7 +98,7 @@ Accepted cell values:
 
 ---
 
-## SimpleSheets Methods *[Asynchronous]*
+## MiniSheets Methods *[Asynchronous]*
 ---
 ### create(worksheetData)
 > Creates a spreadsheet based on the data given
@@ -107,7 +107,7 @@ Arguments:
 + `worksheetData` <**Object**>: an object in the form of [**worksheetData**](#Data-format-%28worksheetData%29)
 
 Return:
-+ <[**SimpleSheet Object**](#SimpleSheet-Object)>
++ <[**MiniSheet Object**](#MiniSheet-Object)>
 
 ---
 ### createFromCSV(title, [csv,...])
@@ -118,7 +118,7 @@ Arguments:
 + `[csv,...]` <**String**\|**Array**(**String**)>: single location of CSV file **OR** array of the locations of CSV files
 
 Return:
-+ <[**SimpleSheet Object**](#SimpleSheet-Object)>
++ <[**MiniSheet Object**](#MiniSheet-Object)>
 
 ---
 ### get(id)
@@ -128,7 +128,7 @@ Arguments:
 + `id` <**String**>: the string id of the spreadsheet
 
 Return:
-+ <[**SimpleSheet Object**](#SimpleSheet-Object)>
++ <[**MiniSheet Object**](#MiniSheet-Object)>
 
 ---
 ### exists(id)
@@ -149,7 +149,7 @@ Arguments:
 + `worksheetData` <**Object**>: an object in the form of [**worksheetData**](#Data-format-%28worksheetData%29)
 
 Return:
-+ <[**SimpleSheet Object**](#SimpleSheet-Object)>: contains updated values
++ <[**MiniSheet Object**](#MiniSheet-Object)>: contains updated values
 
 ---
 ### remove(id)

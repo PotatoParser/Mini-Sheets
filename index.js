@@ -380,7 +380,7 @@ function csvToJSON(){
 	return obj;
 }
 
-class SimpleSheet {
+class MiniSheet {
 	constructor(id, data, folder) {
 		this.id = id;
 		this.worksheet = data;
@@ -388,7 +388,7 @@ class SimpleSheet {
 	}
 }
 
-class SimpleSheets {
+class MiniSheets {
 	constructor(auth, token) {
 		this.auth = OAUTH2(auth, token);
 	}
@@ -431,11 +431,11 @@ class SimpleSheets {
 
 function filter(simpleObj, folder){
 	if (simpleObj instanceof gSheets) {
-		return new SimpleSheet(simpleObj.id, simpleObj.data, folder);
-	} else throw new Error("Cannot convert SimpleSheets into safe object to be modified");
+		return new MiniSheet(simpleObj.id, simpleObj.data, folder);
+	} else throw new Error("Cannot convert MiniSheets into safe object to be modified");
 }
 
-function SimpleSheets_Global(auth, token){
-	return new SimpleSheets(auth, token);
+function MiniSheets_Global(auth, token){
+	return new MiniSheets(auth, token);
 }
-module.exports = SimpleSheets_Global;
+module.exports = MiniSheets_Global;

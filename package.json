@@ -1,7 +1,7 @@
 {
-  "name": "simplesheets",
+  "name": "mini-sheets",
   "version": "1.0.0",
-  "description": "Simplified Google Sheets",
+  "description": "Minified and simplified Google Sheets",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -16,5 +16,14 @@
   "license": "MIT",
   "dependencies": {
     "googleapis": "^38.0.0"
-  }
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PotatoParser/simplesheets.git"
+  },
+  "bugs": {
+    "url": "https://github.com/PotatoParser/simplesheets/issues"
+  },
+  "homepage": "https://github.com/PotatoParser/simplesheets#readme"
 }
