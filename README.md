@@ -17,7 +17,7 @@ MiniSheets.create({
     + [Initialization](#Initialization)
 + [Data format (worksheetData)](#Data-format-worksheetData)
 + [MiniSheet Object](#MiniSheet-Object)
-+ [MiniSheets Methods [Asynchronous]](#MiniSheets-Methods-[Asynchronous])
++ [MiniSheets Methods [Asynchronous]](#MiniSheets-Methods-Asynchronous)
     + [create(worksheetData)](#createworksheetData)
     + [createFromCSV(title, [csv,...])](#createFromCSVtitle-csv)
     + [get(id)](#getid)
