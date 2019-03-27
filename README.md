@@ -15,16 +15,16 @@ SimpleSheets.create({
 ## Table of Contents
 + [SimpleSheets](#SimpleSheets)
     + [Initialization](#Initialization)
-+ [Data format (worksheetData)](#Data-format-%28worksheetData%29)
++ [Data format (worksheetData)](#Data-format-worksheetData)
 + [SimpleSheet Object](#SimpleSheet-Object)
 + [SimpleSheets Methods [Asynchronous]](#SimpleSheets-Methods-[Asynchronous])
-    + [create(worksheetData)](#create%28worksheetData%29)
-    + [createFromCSV(title, [csv,...])](#createFromCSV%28title,-[csv,...]%29)
-    + [get(id)](#get%28id%29)
-    + [exists(id)](#exists%28id%29)    
-    + [update(id, worksheetData)](#update%28id,-worksheetData%29)
-    + [remove(id)](#remove%28id,-folderId%29)
-    + [move(id, folderId)](#move%28id,-folderId%29)
+    + [create(worksheetData)](#createworksheetData)
+    + [createFromCSV(title, [csv,...])](#createFromCSVtitle-csv)
+    + [get(id)](#getid)
+    + [exists(id)](#existsid)    
+    + [update(id, worksheetData)](#updateid-worksheetData)
+    + [remove(id)](#removeid-folderId)
+    + [move(id, folderId)](#moveid-folderId)
 
 ## SimpleSheets
 ---
