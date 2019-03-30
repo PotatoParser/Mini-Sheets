@@ -46,12 +46,11 @@ function OAUTH2(clientJSON, token) {
 		clientJSON = JSON.parse(fs.readFileSync(clientJSON, {encoding: "utf8"}));
 	}
 	client_id = clientJSON.client_id;
-	client_secret = clientJSON.client_secret;
-	redirect_uris = clientJSON.redirect_uris;
+	client_secret = clientJSON["client_secret"];
 	if (typeof token === 'string') {
 		token = JSON.parse(fs.readFileSync(token, {encoding: "utf8"}));
 	}
-	let oauthCode = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
+	let oauthCode = new google.auth.OAuth2(client_id, client_secret);
 	oauthCode.setCredentials(token);
 	return oauthCode;
 }
