@@ -52,7 +52,6 @@ function OAUTH2(clientJSON, token) {
 		token = JSON.parse(fs.readFileSync(token, {encoding: "utf8"}));
 	}
 	let oauthCode = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
-	oauthCode.generateAuthUrl({access_type:"offline",scope: ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive.file"]});
 	oauthCode.setCredentials(token);
 	return oauthCode;
 }
