@@ -13,18 +13,18 @@ MiniSheets.create({
 ```
 
 ## Table of Contents
-+ [MiniSheets](#MiniSheets)
-    + [Initialization](#Initialization)
-+ [Data format (worksheetData)](#Data-format-worksheetData)
-+ [MiniSheet Object](#MiniSheet-Object)
-+ [MiniSheets Methods [Asynchronous]](#MiniSheets-Methods-Asynchronous)
-    + [create(worksheetData)](#createworksheetData)
-    + [createFromCSV(title, [csv,...])](#createFromCSVtitle-csv)
++ [MiniSheets](#minisheets)
+    + [Initialization](#initialization)
++ [Data format (worksheetData)](#data-format-worksheetdata)
++ [MiniSheet Object](#miniSheet-object)
++ [MiniSheets Methods [Asynchronous]](#minisheets-methods-asynchronous)
+    + [create(worksheetData)](#createworksheetdata)
+    + [createFromCSV(title, [csv,...])](#createfromcsvtitle-csv)
     + [get(id)](#getid)
     + [exists(id)](#existsid)    
-    + [update(id, worksheetData)](#updateid-worksheetData)
-    + [remove(id)](#removeid-folderId)
-    + [move(id, folderId)](#moveid-folderId)
+    + [update(id, worksheetData)](#updateid-worksheetdata)
+    + [remove(id)](#removeid-folderid)
+    + [move(id, folderId)](#moveid-folderid)
 
 ## MiniSheets
 ---
