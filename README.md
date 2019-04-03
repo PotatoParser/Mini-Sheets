@@ -20,9 +20,9 @@ MiniSheets.create({
 + [MiniSheets Methods [Asynchronous]](#minisheets-methods-asynchronous)
     + [create(worksheetData)](#createworksheetdata)
     + [createFromCSV(title, [csv,...])](#createfromcsvtitle-csv)
-    + [get(id)](#getid)
+    + [get(id, options)](#getid-options)
     + [exists(id)](#existsid)    
-    + [update(id, worksheetData)](#updateid-worksheetdata)
+    + [update(id, worksheetData, options)](#updateid-worksheetdata-options)
     + [remove(id)](#removeid-folderid)
     + [move(id, folderId)](#moveid-folderid)
 
@@ -121,11 +121,13 @@ Return:
 + <[**MiniSheet Object**](#MiniSheet-Object)>
 
 ---
-### get(id)
+### get(id, options)
 > Gets the data of a spreadsheet
 
 Arguments:
 + `id` <**String**>: the string id of the spreadsheet
++ (OPTIONAL) `options` <**Object**>: options object
+    + `include` <**String**|**Array**>: specifies only certain sheets
 
 Return:
 + <[**MiniSheet Object**](#MiniSheet-Object)>
@@ -141,12 +143,15 @@ Return:
 + <**Boolean**>
 
 ---
-### update(id, worksheetData)
+### update(id, worksheetData, options)
 > Updates the spreadsheet with new data
 
 Arguments:
 + `id` <**String**>: the string id of the spreadsheet
 + `worksheetData` <**Object**>: an object in the form of [**worksheetData**](#Data-format-%28worksheetData%29)
++ (OPTIONAL) `options` <**Object**>: options object
+    + `flex` <**Boolean**>: enables exact update from worksheetData **[Default: false]**
+    + `include` <**String**|**Array**>: specifies only certain sheets
 
 Return:
 + <[**MiniSheet Object**](#MiniSheet-Object)>: contains updated values

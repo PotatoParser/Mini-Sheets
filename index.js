@@ -1,11 +1,31 @@
 const {google} = require("googleapis");
 const fs = require('fs');
 const path = require('path');
-
+const OPTIONS = {include: [], flex: false};
 Object.defineProperty(Object.prototype, "firstKey", {
 	enumerable: false,
 	value: function(){
 		return Object.keys(this)[0];
+	}
+});
+Object.defineProperty(Object.prototype, "cpy", {
+	enumerable: false,
+	value: function(originalObj){
+		for (let key in originalObj) {
+			if (originalObj[key] !== undefined) {
+				if (this[key] === undefined) this[key] = originalObj[key];
+				if (originalObj[key] instanceof Array) {
+					if (typeof this[key] === "string") {
+						this[key] = [this[key]];
+					}
+				}
+				if (typeof originalObj[key] !== typeof this[key]) throw new TypeError(`Type Mismatch: ${key}`);
+			}
+		}
+		for (let key in this) {
+			if (originalObj[key] === undefined) delete this[key];
+		}
+		return this;
 	}
 });
 
@@ -174,9 +194,49 @@ class gSheets {
 		}
 		return worksheet;
 	}
-	static async get(id, auth, decoder) {
+	static async fetch(id, auth) {
 		let temp = new gSheets(null, auth);
 		temp.id = id;
+		return new Promise((resolve, reject)=>{
+			temp.authenticated.spreadsheets.get({spreadsheetId: id, includeGridData: false}, (err, res)=>{
+				if (err) {
+					if (!err.errors) return reject(err);					
+					reject(new Error(err.errors[0].message));
+				}
+				else {
+					let sheetObj = {[res.data.properties.title]: {}};
+					res.data.sheets.forEach(v=>{
+						sheetObj[res.data.properties.title][v.properties.title] = v.properties.sheetId;
+					});
+					resolve(sheetObj);
+				}
+			});
+		});	
+	}
+	static async get(id, auth, decoder, options) {
+		options = (options || {}).cpy(OPTIONS);
+		let temp = new gSheets(null, auth);
+		temp.id = id;
+		if (options.include.length > 0) {
+			let all = await this.fetch(id, auth);
+			let requests = [];
+			for (let key in all[all.firstKey()]) {
+				if (options.include.indexOf(key) !== -1) requests.push({gridRange: {sheetId: all[all.firstKey()][key]}});
+			}
+			return new Promise((resolve, reject)=>{
+				temp.authenticated.spreadsheets.getByDataFilter({spreadsheetId: id, resource: {dataFilters: requests, includeGridData: true}}, (err, res)=>{
+					if (err) {
+						if (!err.errors) return reject(err);					
+						reject(new Error(err.errors[0].message));
+					}
+					else {
+						temp.data = decoder(res.data);	
+						temp.id = res.data.spreadsheetId;
+						resolve(temp);
+					}
+				});
+			});				
+		}
 		return new Promise((resolve, reject)=>{
 			temp.authenticated.spreadsheets.get({spreadsheetId: id, includeGridData: true}, (err, res)=>{
 				if (err) {
@@ -205,16 +265,19 @@ class gSheets {
 			});
 		});
 	}
-	static async update(id, auth, newData) {
-		let sheetObj = await this.get(id, auth, Format.toArrayFull);
+	static async update(id, auth, newData, options) {
+		options = (options || {}).cpy(OPTIONS);
+		let sheetObj = await this.get(id, auth, Format.toArrayFull, options);
 		let requests = [];
 		let obj = sheetObj.data;
 		let title = obj.firstKey();
 		let title2 = newData.firstKey();
 		let currentIds = [];
 		for (let key in obj[title]) currentIds.push(obj[title][key].id);
-		for (let key in obj[title]) {
-			if (newData[title2][key] === undefined) requests.push({deleteSheet: {sheetId: obj[title][key].id}});
+		if (!options.flex) {
+			for (let key in obj[title]) {
+				if (newData[title2][key] === undefined) requests.push({deleteSheet: {sheetId: obj[title][key].id}});
+			}
 		}
 		for (let key in newData[title]) {
 			let _old = obj[title][key];
@@ -320,7 +383,10 @@ class gSheets {
 			tempAuth.files.get({fileId: id, scope: "parents"}, (err, res)=>{
 				if (err) {
 					if (!err.errors) return reject(err);
-					if (err.errors[0].reason === "notFound") return resolve(false);
+					if (err.errors[0].reason === "notFound") {
+						console.warn('\x1b[33m%s\x1b[0m', `WARNING: Spreadsheet is not found: ${id}`);
+						return resolve(false);
+					}
 					else return reject(new Error(err.errors[0].message));
 				}
 				if (res.data.labels.trashed) {
@@ -398,22 +464,22 @@ class MiniSheets {
 	async createFromCSV(title, data) {
 		return this.create({[title]: csvToJSON.apply(null, files)});		
 	}
-	async get(id){
+	async get(id, options){
 		if (typeof id !== "string") throw new Error("Invalid ID, ID must be a string");
 		let folder = await gSheets.getFolder(id, this.auth);
-		if (!folder) return false;		
-		let sh = await gSheets.get(id, this.auth, Format.toArray);
+		if (folder === false) return false;		
+		let sh = await gSheets.get(id, this.auth, Format.toArray, options);
 		return filter(sh, folder);
 	}
 	async exists(id) {
 		if (typeof id !== "string") throw new Error("Invalid ID, ID must be a string");		
 		return ((await gSheets.getFolder(id, this.auth) === false)) ? false : true;
 	}
-	async update(id, newData) {
+	async update(id, newData, options) {
 		if (typeof id !== "string") throw new Error("Invalid ID, ID must be a string");
 		if (!(newData instanceof Object)) throw new Error("Invalid worksheet data");
 		let folder = await gSheets.getFolder(id, this.auth);		
-		let sh = await gSheets.update(id, this.auth, newData);
+		let sh = await gSheets.update(id, this.auth, newData, options);
 		return filter(sh, folder);
 	}
 	async remove(id) {
