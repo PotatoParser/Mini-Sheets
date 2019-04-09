@@ -133,6 +133,7 @@ class Format {
 	static value(val){
 		let variable;
 		if (val instanceof Date) val = val.toString();
+		if (val === null) val = '';		
 		switch (typeof val) {
 			case "string": variable = "stringValue"; break;
 			case "boolean": variable = "boolValue"; break;
@@ -290,7 +291,7 @@ class gSheets {
 				requests.push({updateCells: {fields: "*", rows: temp.data[0].rowData, range: {sheetId: id, startRowIndex: 0, startColumnIndex: 0}}})		
 				continue;
 			}
-			let sheetUp = this.compare(_old, _new, title2);
+			let sheetUp = this.compare(_old, _new, key);
 			if (sheetUp) sheetUp.forEach(d=>requests.push(d));
 		}
 		if (title !== title2) {
@@ -349,7 +350,7 @@ class gSheets {
 			for (let j = 0; j < newData[i].length; j++) {
 				if (oldData[i] === undefined) {
 					sheetUpdate.push({updateCells: {
-						rows: [{values: [{userEnteredValue: Format.value(newData[i][j] || oldData[i][j])}]}], 
+						rows: [{values: [{userEnteredValue: Format.value((newData[i][j]!== undefined) ? newData[i][j] : oldData[i][j])}]}], 
 						fields: "*",
 						start: {sheetId: oldSheet.id, rowIndex: i, columnIndex: j}}
 					});	
