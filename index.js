@@ -133,7 +133,7 @@ class Format {
 	static value(val){
 		let variable;
 		if (val instanceof Date) val = val.toString();
-		if (val === null) val = '';		
+		if (val === null || val === undefined) val = '';		
 		switch (typeof val) {
 			case "string": variable = "stringValue"; break;
 			case "boolean": variable = "boolValue"; break;
@@ -308,7 +308,9 @@ class gSheets {
 			return sheetObj;		
 		}
 		return new Promise((resolve, reject)=>{
-			sheetObj.authenticated.spreadsheets.batchUpdate({spreadsheetId: id, resource: {requests: requests, includeSpreadsheetInResponse: true, responseIncludeGridData: true}}, (err, res)=>{
+			let REQ = {spreadsheetId: id, resource: {requests: requests, includeSpreadsheetInResponse: true, responseIncludeGridData: true}};
+			if (options.include) REQ.resource.responseRanges = options.include;
+			sheetObj.authenticated.spreadsheets.batchUpdate(REQ, (err, res)=>{
 				if (err) {
 					if (!err.errors) return reject(err);
 					reject(new Error(err.errors[0].message));
@@ -358,7 +360,7 @@ class gSheets {
 				}
 				if (oldData[i][j] !== newData[i][j]) 
 					sheetUpdate.push({updateCells: {
-						rows: [{values: [{userEnteredValue: Format.value(newData[i][j] || oldData[i][j])}]}], 
+						rows: [{values: [{userEnteredValue: Format.value((newData[i][j]!== undefined) ? newData[i][j] : oldData[i][j])}]}], 
 						fields: "*",
 						start: {sheetId: oldSheet.id, rowIndex: i, columnIndex: j}}
 					});
@@ -450,6 +452,17 @@ class MiniSheet {
 		this.id = id;
 		this.worksheet = data;
 		this.folder = folder || null;
+	}
+	sheet(name){
+		if (!name) {
+			let first = this.worksheet.firstKey();
+			return this.worksheet[first][this.worksheet[first].firstKey()];
+			//this.worksheet[this.worksheet.firstKey()];
+		} else if (name){
+			let first = this.worksheet.firstKey();
+			return this.worksheet[first][name];
+			//Object.keys(this.worksheet[this.worksheet.firstKey()]);
+		}
 	}
 }
 
