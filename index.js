@@ -2,13 +2,42 @@ const {google} = require("googleapis");
 const fs = require('fs');
 const path = require('path');
 const OPTIONS = {include: [], flex: false};
-Object.defineProperty(Object.prototype, "firstKey", {
+function firstKey(obj){
+	return Object.keys(obj)[0];
+}
+/*Object.defineProperty(Object.prototype, "firstKey", {
 	enumerable: false,
 	value: function(){
 		return Object.keys(this)[0];
 	}
-});
-Object.defineProperty(Object.prototype, "cpy", {
+});*/
+function empty(obj){
+	return Object.keys(obj).length === 0;
+}
+/*Object.defineProperty(Object.prototype, "empty", {
+	enumerable: false,
+	value: function(){
+		return Object.keys(this).length === 0;
+	}
+});*/
+function cpy(duplicateObj, originalObj){
+	for (let key in originalObj) {
+		if (originalObj[key] !== undefined) {
+			if (duplicateObj[key] === undefined) duplicateObj[key] = originalObj[key];
+			if (originalObj[key] instanceof Array) {
+				if (typeof duplicateObj[key] === "string") {
+					duplicateObj[key] = [duplicateObj[key]];
+				}
+			}
+			if (typeof originalObj[key] !== typeof duplicateObj[key]) throw new TypeError(`Type Mismatch: ${key}`);
+		}
+	}
+	for (let key in duplicateObj) {
+		if (originalObj[key] === undefined) delete duplicateObj[key];
+	}
+	return duplicateObj;	
+}
+/*Object.defineProperty(Object.prototype, "cpy", {
 	enumerable: false,
 	value: function(originalObj){
 		for (let key in originalObj) {
@@ -27,7 +56,7 @@ Object.defineProperty(Object.prototype, "cpy", {
 		}
 		return this;
 	}
-});
+});*/
 
 class Sheet {
 	constructor(sheetObj){
@@ -48,7 +77,8 @@ class Sheet {
 			}
 			for (let j = 0; j < insideTemp.length; j++) {
 				let other = insideTemp[j].formattedValue;
-				let cell = (typeof other === 'object') ? other[Object.keys(other)[0]] : ((isNaN(Number(other)) ? ((isNaN(Date.parse(other))) ? other : new Date(other)) : Number(other)));
+				let cell = (typeof other === 'object') ? other[Object.keys(other)[0]] : (!isNaN(Number(other)) ? Number(other) : other);
+				//(typeof other === 'object') ? other[Object.keys(other)[0]] : ((isNaN(Number(other)) ? ((isNaN(Date.parse(other))) ? other : new Date(other)) : Number(other)));
 				row.push(cell);
 			}
 			arr.push(row);
@@ -98,7 +128,7 @@ class Format {
 		return sheets;
 	}
 	static fromFullToArray(fullArray) {
-		let temp = fullArray.firstKey();
+		let temp = firstKey(fullArray);
 		let sheets = {
 			[temp]: {}
 		}
@@ -121,7 +151,8 @@ class Format {
 				if (!insideTemp) continue;
 				for (let j = 0; j < insideTemp.length; j++) {
 					let other = insideTemp[j].formattedValue;
-					let cell = (typeof other === 'object') ? other[Object.keys(other)[0]] : ((isNaN(Number(other)) ? ((isNaN(Date.parse(other))) ? other : new Date(other)) : Number(other)));
+					let cell = (typeof other === 'object') ? other[Object.keys(other)[0]] : (!isNaN(Number(other)) ? Number(other) : other);
+					//(typeof other === 'object') ? other[Object.keys(other)[0]] : ((isNaN(Number(other)) ? ((isNaN(Date.parse(other))) ? other : new Date(other)) : Number(other)));
 					row.push(cell);
 				}
 				arr.push(row);
@@ -132,7 +163,7 @@ class Format {
 	}		
 	static value(val){
 		let variable;
-		if (val instanceof Date) val = val.toString();
+		//if (val instanceof Date) val = val.toString();
 		if (val === null || val === undefined) val = '';		
 		switch (typeof val) {
 			case "string": variable = "stringValue"; break;
@@ -182,7 +213,7 @@ class gSheets {
 		this.id = null;		
 	}
 	constructWorksheet(){
-		let title = this.data.firstKey();
+		let title = firstKey(this.data);
 		if (this.data[title] instanceof Array) throw new Error("Spreadsheet does not have any title!");
 		let worksheet = {
 			properties: {
@@ -215,14 +246,15 @@ class gSheets {
 		});	
 	}
 	static async get(id, auth, decoder, options) {
-		options = (options || {}).cpy(OPTIONS);
+		options = cpy(options || {}, OPTIONS);
+		//(options || {}).cpy(OPTIONS);
 		let temp = new gSheets(null, auth);
 		temp.id = id;
 		if (options.include.length > 0) {
 			let all = await this.fetch(id, auth);
 			let requests = [];
-			for (let key in all[all.firstKey()]) {
-				if (options.include.indexOf(key) !== -1) requests.push({gridRange: {sheetId: all[all.firstKey()][key]}});
+			for (let key in all[firstKey(all)]) {
+				if (options.include.indexOf(key) !== -1) requests.push({gridRange: {sheetId: all[firstKey(all)][key]}});
 			}
 			return new Promise((resolve, reject)=>{
 				temp.authenticated.spreadsheets.getByDataFilter({spreadsheetId: id, resource: {dataFilters: requests, includeGridData: true}}, (err, res)=>{
@@ -267,22 +299,23 @@ class gSheets {
 		});
 	}
 	static async update(id, auth, newData, options) {
-		options = (options || {}).cpy(OPTIONS);
+		options = cpy(options || {}, OPTIONS);
+		//(options || {}).cpy(OPTIONS);
 		let sheetObj = await this.get(id, auth, Format.toArrayFull, options);
 		let requests = [];
 		let obj = sheetObj.data;
-		let title = obj.firstKey();
-		let title2 = newData.firstKey();
+		let title = firstKey(obj);
+		//let title2 = newData.firstKey();
 		let currentIds = [];
 		for (let key in obj[title]) currentIds.push(obj[title][key].id);
 		if (!options.flex) {
 			for (let key in obj[title]) {
-				if (newData[title2][key] === undefined) requests.push({deleteSheet: {sheetId: obj[title][key].id}});
+				if (newData[key] === undefined) requests.push({deleteSheet: {sheetId: obj[title][key].id}});
 			}
 		}
-		for (let key in newData[title]) {
+		for (let key in newData) {
 			let _old = obj[title][key];
-			let _new = newData[title][key];
+			let _new = newData[key];
 			if (_old === undefined) {
 				let temp = Format.createSheet(key, _new);
 				let id = Format.fullRandId(currentIds);
@@ -294,7 +327,7 @@ class gSheets {
 			let sheetUp = this.compare(_old, _new, key);
 			if (sheetUp) sheetUp.forEach(d=>requests.push(d));
 		}
-		if (title !== title2) {
+		/*if (title !== title2) {
 			requests.push({updateSpreadsheetProperties: {
 					properties: {
 						title: title2,
@@ -302,7 +335,7 @@ class gSheets {
 					fields: "*"
 				}
 			});	
-		}		
+		}	*/	
 		if (requests.length === 0) {
 			sheetObj.data = Format.fromFullToArray(sheetObj.data);
 			return sheetObj;		
@@ -380,7 +413,8 @@ class gSheets {
 			});
 		});			
 	}
-	static async getFolder(id, auth) {
+	static async getProp(id, auth) {
+		let prop = {folder: null, trashed: false, title: null, description: "", open: false};
 		let tempAuth = google.drive({version: "v2", auth});
 		return await new Promise((resolve, reject)=>{
 			tempAuth.files.get({fileId: id, scope: "parents"}, (err, res)=>{
@@ -388,19 +422,25 @@ class gSheets {
 					if (!err.errors) return reject(err);
 					if (err.errors[0].reason === "notFound") {
 						console.warn('\x1b[33m%s\x1b[0m', `WARNING: Spreadsheet is not found: ${id}`);
-						return resolve(false);
+						return resolve(prop);
 					}
 					else return reject(new Error(err.errors[0].message));
 				}
 				if (res.data.labels.trashed) {
 					console.warn('\x1b[33m%s\x1b[0m',`WARNING: Spreadsheet is in trash bin: ${id}`);
-					return resolve(false);
-				}
+					prop.trashed = true;
+					//return resolve(false);
+				} else prop.open = true;
+				prop.title = res.data.title;
+				prop.description = res.data.description;
 				let parents = [];
 				res.data.parents.forEach((val)=>{
 					if (!val.isRoot) parents.push(val.id);
 				});
-				resolve((parents.length === 1) ? parents.join(",") : null);
+				if (parents.length === 1)
+					prop.folder = parents.join(",");
+				resolve(prop);
+				//resolve((parents.length === 1) ? parents.join(",") : null);
 			});
 		});
 	}
@@ -410,10 +450,10 @@ class gSheets {
 			fileId: id,
 			addParents: folderId
 		}
-		let parents = await this.getFolder(id, auth);
-		if (parents === false) throw new Error("Cannot find spreadsheet");
-		if (parents) resource["removeParents"] = parents;
-		if (!parents && !folderId) return id;
+		let parentsProp = await this.getProp(id, auth);
+		if (!parentsProp.open) throw new Error("Cannot find spreadsheet");
+		if (parentsProp.folder) resource["removeParents"] = parents;
+		if (!parentsProp.folder && !folderId) return id;
 		if (folderId === null) {
 			delete resource.addParents;
 		}
@@ -426,6 +466,23 @@ class gSheets {
 				else resolve((folderId) ? folderId : id);
 			});
 		});
+	}
+	static async setProp(id, newProp, auth) {
+		newProp = newProp || {}
+		let tempAuth = google.drive({version: "v2", auth});
+		let resource = {};
+		if (newProp.details) resource.description = newProp.details;
+		if (newProp.title) resource.title = newProp.title;	
+		if (empty(resource)) return null;
+		return new Promise((resolve, reject)=>{
+			tempAuth.files.update({fileId: id, resource: resource}, (err, res)=>{
+				if (err) {
+					if (!err.errors) return reject(err);					
+					reject(new Error(err.errors[0].message));
+				}
+				else resolve((resource) ? resource : '');
+			});
+		});		
 	}
 }
 
@@ -448,20 +505,20 @@ function csvToJSON(){
 }
 
 class MiniSheet {
-	constructor(id, data, folder) {
+	constructor(id, data, prop) {
 		this.id = id;
-		this.worksheet = data;
-		this.folder = folder || null;
+		this.worksheet = data[firstKey(data)];
+		this.folder = prop.folder;
+		this.details = prop.description || "";
+		this.title = prop.title;
+		this.trashed = prop.trashed;
 	}
 	sheet(name){
 		if (!name) {
-			let first = this.worksheet.firstKey();
-			return this.worksheet[first][this.worksheet[first].firstKey()];
-			//this.worksheet[this.worksheet.firstKey()];
+			let first = firstKey(this.worksheet);
+			return this.worksheet[first];
 		} else if (name){
-			let first = this.worksheet.firstKey();
-			return this.worksheet[first][name];
-			//Object.keys(this.worksheet[this.worksheet.firstKey()]);
+			return this.worksheet[name];
 		}
 	}
 }
@@ -473,28 +530,28 @@ class MiniSheets {
 	async create(data) {
 		if (!(data instanceof Object)) throw new Error("Invalid worksheet data");		
 		let temp = new gSheets(data, this.auth);
-		return filter(await temp.create(), null);
+		return filter(await temp.create(), {folder: null, trashed: false, title: firstKey(data), description: "", open: true});
 	}
 	async createFromCSV(title, data) {
 		return this.create({[title]: csvToJSON.apply(null, files)});		
 	}
 	async get(id, options){
 		if (typeof id !== "string") throw new Error("Invalid ID, ID must be a string");
-		let folder = await gSheets.getFolder(id, this.auth);
-		if (folder === false) return false;		
+		let fileProp = await gSheets.getProp(id, this.auth);
+		if (!fileProp.open) return false;
 		let sh = await gSheets.get(id, this.auth, Format.toArray, options);
-		return filter(sh, folder);
+		return filter(sh, fileProp);
 	}
 	async exists(id) {
 		if (typeof id !== "string") throw new Error("Invalid ID, ID must be a string");		
-		return ((await gSheets.getFolder(id, this.auth) === false)) ? false : true;
+		return ((await gSheets.getProp(id, this.auth).open)) ? true : false;
 	}
 	async update(id, newData, options) {
 		if (typeof id !== "string") throw new Error("Invalid ID, ID must be a string");
 		if (!(newData instanceof Object)) throw new Error("Invalid worksheet data");
-		let folder = await gSheets.getFolder(id, this.auth);		
+		let fileProp = await gSheets.getProp(id, this.auth);		
 		let sh = await gSheets.update(id, this.auth, newData, options);
-		return filter(sh, folder);
+		return filter(sh, fileProp);
 	}
 	async remove(id) {
 		if (typeof id !== "string") throw new Error("Invalid ID, ID must be a string");		
@@ -505,11 +562,20 @@ class MiniSheets {
 		if (typeof folderId !== "string" && folderId !== null) throw new Error("Invalid folder ID, ID must be a string");
 		return gSheets.move(id, folderId, this.auth);
 	}
+	async setProp(id, props) {
+		if (typeof id !== "string") throw new Error("Invalid ID, ID must be a string");		
+		if (typeof props !== 'object') throw new Error("Invalid properties, properties must be an object");	
+		return gSheets.setProp(id, props, this.auth);
+	}
+	async getProp(id) {
+		if (typeof id !== "string") throw new Error("Invalid ID, ID must be a string");		
+		return gSheets.getProp(id, this.auth);
+	}	
 }
 
-function filter(simpleObj, folder){
+function filter(simpleObj, prop){
 	if (simpleObj instanceof gSheets) {
-		return new MiniSheet(simpleObj.id, simpleObj.data, folder);
+		return new MiniSheet(simpleObj.id, simpleObj.data, prop);
 	} else throw new Error("Cannot convert MiniSheets into safe object to be modified");
 }
 
