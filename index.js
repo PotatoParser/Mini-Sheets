@@ -117,6 +117,7 @@ class Format {
 		return num;
 	}
 	static toArrayFull(sheetObj){
+		if (!sheetObj) return undefined;
 		let temp = sheetObj.sheets;
 		let sheets = {
 			[sheetObj.properties.title]: {}
@@ -138,6 +139,7 @@ class Format {
 		return sheets;
 	}
 	static toArray(sheetObj){
+		if (!sheetObj) return undefined;
 		let temp = sheetObj.sheets;
 		let sheets = {
 			[sheetObj.properties.title]: {}
@@ -316,6 +318,7 @@ class gSheets {
 		for (let key in newData) {
 			let _old = obj[title][key];
 			let _new = newData[key];
+			if (_new === undefined) continue;
 			if (_old === undefined) {
 				let temp = Format.createSheet(key, _new);
 				let id = Format.fullRandId(currentIds);
@@ -350,7 +353,7 @@ class gSheets {
 				}
 				else {
 					sheetObj.data = Format.toArray(res.data.updatedSpreadsheet);
-					sheetObj.id = res.data.updatedSpreadsheet.spreadsheetId;
+					sheetObj.id = res.data.spreadsheetId;
 					resolve(sheetObj);
 				}
 			});
@@ -507,7 +510,7 @@ function csvToJSON(){
 class MiniSheet {
 	constructor(id, data, prop) {
 		this.id = id;
-		this.worksheet = data[firstKey(data)];
+		this.worksheet = data ? data[firstKey(data)] : undefined;
 		this.folder = prop.folder;
 		this.details = prop.description || "";
 		this.title = prop.title;
