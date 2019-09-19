@@ -2,24 +2,13 @@ const {google} = require("googleapis");
 const fs = require('fs');
 const path = require('path');
 const OPTIONS = {include: [], flex: false};
+
 function firstKey(obj){
 	return Object.keys(obj)[0];
 }
-/*Object.defineProperty(Object.prototype, "firstKey", {
-	enumerable: false,
-	value: function(){
-		return Object.keys(this)[0];
-	}
-});*/
 function empty(obj){
 	return Object.keys(obj).length === 0;
 }
-/*Object.defineProperty(Object.prototype, "empty", {
-	enumerable: false,
-	value: function(){
-		return Object.keys(this).length === 0;
-	}
-});*/
 function cpy(duplicateObj, originalObj){
 	for (let key in originalObj) {
 		if (originalObj[key] !== undefined) {
@@ -37,26 +26,6 @@ function cpy(duplicateObj, originalObj){
 	}
 	return duplicateObj;	
 }
-/*Object.defineProperty(Object.prototype, "cpy", {
-	enumerable: false,
-	value: function(originalObj){
-		for (let key in originalObj) {
-			if (originalObj[key] !== undefined) {
-				if (this[key] === undefined) this[key] = originalObj[key];
-				if (originalObj[key] instanceof Array) {
-					if (typeof this[key] === "string") {
-						this[key] = [this[key]];
-					}
-				}
-				if (typeof originalObj[key] !== typeof this[key]) throw new TypeError(`Type Mismatch: ${key}`);
-			}
-		}
-		for (let key in this) {
-			if (originalObj[key] === undefined) delete this[key];
-		}
-		return this;
-	}
-});*/
 
 class Sheet {
 	constructor(sheetObj){
@@ -78,7 +47,6 @@ class Sheet {
 			for (let j = 0; j < insideTemp.length; j++) {
 				let other = insideTemp[j].formattedValue;
 				let cell = (typeof other === 'object') ? other[Object.keys(other)[0]] : (!isNaN(Number(other)) ? Number(other) : other);
-				//(typeof other === 'object') ? other[Object.keys(other)[0]] : ((isNaN(Number(other)) ? ((isNaN(Date.parse(other))) ? other : new Date(other)) : Number(other)));
 				row.push(cell);
 			}
 			arr.push(row);
@@ -154,7 +122,6 @@ class Format {
 				for (let j = 0; j < insideTemp.length; j++) {
 					let other = insideTemp[j].formattedValue;
 					let cell = (typeof other === 'object') ? other[Object.keys(other)[0]] : (!isNaN(Number(other)) ? Number(other) : other);
-					//(typeof other === 'object') ? other[Object.keys(other)[0]] : ((isNaN(Number(other)) ? ((isNaN(Date.parse(other))) ? other : new Date(other)) : Number(other)));
 					row.push(cell);
 				}
 				arr.push(row);
@@ -165,7 +132,6 @@ class Format {
 	}		
 	static value(val){
 		let variable;
-		//if (val instanceof Date) val = val.toString();
 		if (val === null || val === undefined) val = '';		
 		switch (typeof val) {
 			case "string": variable = "stringValue"; break;
@@ -249,7 +215,6 @@ class gSheets {
 	}
 	static async get(id, auth, decoder, options) {
 		options = cpy(options || {}, OPTIONS);
-		//(options || {}).cpy(OPTIONS);
 		let temp = new gSheets(null, auth);
 		temp.id = id;
 		if (options.include.length > 0) {
@@ -302,12 +267,10 @@ class gSheets {
 	}
 	static async update(id, auth, newData, options) {
 		options = cpy(options || {}, OPTIONS);
-		//(options || {}).cpy(OPTIONS);
 		let sheetObj = await this.get(id, auth, Format.toArrayFull, options);
 		let requests = [];
 		let obj = sheetObj.data;
 		let title = firstKey(obj);
-		//let title2 = newData.firstKey();
 		let currentIds = [];
 		for (let key in obj[title]) currentIds.push(obj[title][key].id);
 		if (!options.flex) {
@@ -432,7 +395,6 @@ class gSheets {
 				if (res.data.labels.trashed) {
 					console.warn('\x1b[33m%s\x1b[0m',`WARNING: Spreadsheet is in trash bin: ${id}`);
 					prop.trashed = true;
-					//return resolve(false);
 				} else prop.open = true;
 				prop.title = res.data.title;
 				prop.description = res.data.description;
@@ -443,7 +405,6 @@ class gSheets {
 				if (parents.length === 1)
 					prop.folder = parents.join(",");
 				resolve(prop);
-				//resolve((parents.length === 1) ? parents.join(",") : null);
 			});
 		});
 	}

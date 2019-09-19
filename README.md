@@ -92,9 +92,23 @@ Accepted cell values:
 {
     id: stringID,
     worksheet: worksheetData,
-    folder: null // MyDrive
+    folder: null, // MyDrive
+    details: "",
+    title: "",
+    trashed: false,
 }
 ```
+
+## MiniSheet Methods
+---
+### sheet(sheetTitle)
+> Fetches a sheet based off of title
+
+Arguments:
++ (OPTIONAL) `sheetTitle` <**String**>: a sheet title OR leave blank for first sheet
+
+Return:
++ <**Object**>
 
 ---
 
