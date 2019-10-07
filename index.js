@@ -27,6 +27,80 @@ function cpy(duplicateObj, originalObj){
 	return duplicateObj;	
 }
 
+function validate(originalObj, verifyObj) {
+	for (let key in verifyObj) {
+		if (originalObj[key] !== undefined) {
+			verifyObj[key] = originalObj[key];
+		}
+	}
+	return verifyObj;
+}
+
+class Sheet {
+	constructor(sheetObj) {
+		this.sheetId = sheetObj.properties.sheetId;
+		this.sheetTitle = sheetObj.properties.title;
+		this.height = sheetObj.properties.gridProperties.rowCount;
+		this.width = sheetObj.properties.gridProperties.columnCount;
+		this.data = [];
+		let sheetData = sheetObj.data[0].rowData;
+		for (let i = 0; i < sheetData.length; i++) {
+			let sheetRow = sheetData[i].values;
+			let row = [];
+			for (let k = 0; k < sheetRow.length; k++) {
+				let type = firstKey(sheetRow[k]);
+				let value = sheetRow[k].effectiveValue[type];				
+				switch(type) {
+					case 'numberValue': row.push(Number(value)); break;
+					case 'boolValue': row.push(!!value); break;
+					default: row.push(value); break;
+				}
+			}
+			this.data.push(row);
+		}
+	}
+}
+
+class Metadata {
+	constructor(sheetMeta) {
+		this.id = sheetMeta.metadataId;
+		this.value = sheetMeta.metadataValue;
+		this.path = null;
+		if (sheetMeta.location.locationType === 'SHEET') this.path = sheetMeta.location.sheetId;
+	}
+}
+
+class Worksheet {
+	constructor(worksheetObj) {
+		this.worksheetId = worksheetObj.spreadsheetId;
+		this.worksheetTitle = worksheetObj.properties.title;
+		this.sheets = {};
+		this.metadata = [];
+		for (let i = 0; i < worksheetObj.sheets.length; i++) {
+			let title = worksheetObj.sheets[i].properties.title;
+			this.sheets[title] = new Sheet(worksheetObj.sheets[i]);
+			let sheetMeta = sheetObj.developerMetadata;
+			this.metadata[title] = {};			
+			for (let k = 0; k < sheetMeta.length; k++) {
+				this.metadata[title][sheetMeta[i].metadataKey] = new Metadata(sheetMeta[i]);
+			}	
+		}
+	}
+	simplify(){
+		this.title = this.worksheetTitle;
+		for (let sheetTitle in this.sheets) {
+			this.sheets[sheetTitle] = this.sheets[sheetTitle].data;
+			let meta = this.metadata;
+			for (let metaKey in this.metadata[sheetTitle]) {
+				this.metadata[sheetTitle][metaKey] = this.metadata[sheetTitle][metaKey].value;
+			}
+		}
+		delete this.worksheetId;
+		delete this.worksheetTitle;
+		return this;
+	}
+}
+
 class Sheet {
 	constructor(sheetObj){
 		let arr = [];
