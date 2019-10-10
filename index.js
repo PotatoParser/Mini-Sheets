@@ -9,24 +9,6 @@ function firstKey(obj){
 function empty(obj){
 	return Object.keys(obj).length === 0;
 }
-function cpy(duplicateObj, originalObj){
-	for (let key in originalObj) {
-		if (originalObj[key] !== undefined) {
-			if (duplicateObj[key] === undefined) duplicateObj[key] = originalObj[key];
-			if (originalObj[key] instanceof Array) {
-				if (typeof duplicateObj[key] === "string") {
-					duplicateObj[key] = [duplicateObj[key]];
-				}
-			}
-			if (typeof originalObj[key] !== typeof duplicateObj[key]) throw new TypeError(`Type Mismatch: ${key}`);
-		}
-	}
-	for (let key in duplicateObj) {
-		if (originalObj[key] === undefined) delete duplicateObj[key];
-	}
-	return duplicateObj;	
-}
-
 function validate(originalObj, verifyObj) {
 	for (let key in verifyObj) {
 		if (originalObj[key] !== undefined) {
@@ -36,54 +18,166 @@ function validate(originalObj, verifyObj) {
 	return verifyObj;
 }
 
-class Sheet {
-	constructor(sheetObj) {
-		this.sheetId = sheetObj.properties.sheetId;
-		this.sheetTitle = sheetObj.properties.title;
-		this.height = sheetObj.properties.gridProperties.rowCount;
-		this.width = sheetObj.properties.gridProperties.columnCount;
-		this.data = [];
-		let sheetData = sheetObj.data[0].rowData;
-		for (let i = 0; i < sheetData.length; i++) {
-			let sheetRow = sheetData[i].values;
-			let row = [];
-			for (let k = 0; k < sheetRow.length; k++) {
-				let type = firstKey(sheetRow[k]);
-				let value = sheetRow[k].effectiveValue[type];				
-				switch(type) {
-					case 'numberValue': row.push(Number(value)); break;
-					case 'boolValue': row.push(!!value); break;
-					default: row.push(value); break;
-				}
+class SingleMetadata {
+	constructor(key, value, id, parentMetadata) {
+		this.key = key;
+		this.value = value;
+		this.id = id;
+		this.parent = parentMetadata;
+	}
+	toSingleMetadataObject(){
+		let temp = {
+			metadataKey: this.key,
+			metadataValue: this.value,
+			visibility: 'DOCUMENT',
+			location: {
+				sheetId: this.parent.path
 			}
-			this.data.push(row);
+		};
+		if (this.id) temp.metadataId = this.id;		
+		return temp;
+	}
+	equals(singleMetadata){
+		for (let key in this) {
+			if (key === 'parent') continue;
+			if (this[key] !== singleMetadata[key]) return false;
 		}
+		return true;
 	}
 }
 
 class Metadata {
-	constructor(sheetMeta) {
-		this.id = sheetMeta.metadataId;
-		this.value = sheetMeta.metadataValue;
-		this.path = null;
-		if (sheetMeta.location.locationType === 'SHEET') this.path = sheetMeta.location.sheetId;
+	constructor(sheetMetaPath = null, sheetMetaPairs = {}) {
+		this.path = sheetMetaPath;
+		this.data = {};
+		for (let metaKey in sheetMetaPairs) {
+			this.data[metaKey] = new SingleMetadata(metaKey, sheetMetaPairs[metaKey], null, this);
+		}
+	}
+	static parse(sheetObj) {
+		let parsedSheetMeta = new Metadata();
+		parsedSheetMeta.path = sheetObj.properties.sheetId;
+		if (!sheetObj.developerMetadata) return parsedSheetMeta;
+		for (let i = 0; i < sheetObj.developerMetadata.length; i++) {
+			let meta = sheetObj.developerMetadata[i];
+			parsedSheetMeta.data[meta.metadataKey] = new SingleMetadata(meta.metadataKey, meta.metadataValue, meta.metadataId, parsedSheetMeta);
+		}
+		return parsedSheetMeta;
+	}
+	fillEmpty(oldMetadata){
+		if (!this.path) this.path = oldMetadata.path;
+		for (let metaKey in this.data) {
+			if (oldMetadata.data[metaKey]) {
+				this.data[metaKey].id = this.data[metaKey].id || oldMetadata.data[metaKey].id;			
+			}
+		}
+		for (let metaKey in oldMetadata.data) {
+			if (!this.data.hasOwnProperty(metaKey)) this.data[metaKey] = new SingleMetadata(metaKey, oldMetadata.data[metaKey].value, oldMetadata.data[metaKey].id, this);
+		}
+	}
+	toMetadataObject(){
+		let obj = [];
+		for (let metaKey in this.data) {
+			obj.push(this.data[metaKey].toSingleMetadataObject());
+		}
+		return obj;
+	}
+}
+
+class Sheet {
+	constructor(sheetTitle, sheetGridData = [[]]) {
+		this.sheetId = null;
+		this.sheetTitle = sheetTitle;
+		let columnCount = sheetGridData[0].length;
+		for (let i = 1; i < sheetGridData.length; i++) {
+			if (sheetGridData[i].length !== columnCount) throw new Error('Column count does not match per row');
+		}
+		this.rows = sheetGridData.length;
+		this.columns = sheetGridData[0].length;
+		this.data = sheetGridData;
+	}
+	static parse(sheetObj) {
+		let parsedSheet = new Sheet();
+		parsedSheet.sheetId = sheetObj.properties.sheetId;
+		parsedSheet.sheetTitle = sheetObj.properties.title;
+		parsedSheet.rows = sheetObj.properties.gridProperties.rowCount;
+		parsedSheet.columns = sheetObj.properties.gridProperties.columnCount;
+		parsedSheet.data = [];
+		if (sheetObj.data) {
+			let sheetData = sheetObj.data[0].rowData;
+			for (let i = 0; i < sheetData.length; i++) {
+				let sheetRow = sheetData[i].values;
+				let row = [];
+				for (let k = 0; k < sheetRow.length; k++) {
+					if (empty(sheetRow[k])) {
+						row.push(null);
+						continue;
+					}
+					let type = firstKey(sheetRow[k].effectiveValue || sheetRow[k].userEnteredValue);
+					let value = (sheetRow[k].effectiveValue) ? sheetRow[k].effectiveValue[type] : sheetRow[k].userEnteredValue[type];				
+					switch(type) {
+						case 'numberValue': row.push(Number(value)); break;
+						case 'boolValue': row.push(!!value); break;
+						default: row.push(value); break;
+					}
+				}
+				parsedSheet.data.push(row);
+			}		
+		}
+		return parsedSheet;
+	}
+	fillEmpty(oldSheet = {}){
+		if (oldSheet.sheetId) this.sheetId = oldSheet.sheetId;
+	}
+	toSheetObject(metadata = {data: {}}){
+		let obj = {
+			properties: {
+				sheetId: this.sheetId,
+				title: this.sheetTitle,
+				gridProperties: {
+					rowCount: this.rows,
+					columnCount: this.columns
+				}
+			},
+			data: [{
+				rowData: [],
+				startRow: 0,
+				startColumn: 0,
+			}],
+			developerMetadata: [],
+		}
+		for (let i = 0; i < this.data.length; i++) {
+			let singleRow = {
+				values: []
+			}
+			for (let k = 0; k < this.data[i].length; k++) {
+				let gridValue = this.data[i][k];
+				switch (typeof gridValue) {
+					case 'string': singleRow.values.push({userEnteredValue: {stringValue: gridValue}}); break;
+					case 'number': singleRow.values.push({userEnteredValue: {numberValue: gridValue}}); break;
+					case 'boolean': singleRow.values.push({userEnteredValue: {boolValue: gridValue}}); break;
+					default: singleRow.values.push({}); break;
+				}
+			}
+			obj.data[0].rowData.push(singleRow);
+		}
+		if (empty(metadata.data)) delete obj.developerMetadata;
+		else obj.developerMetadata = metadata.toMetadataObject();
+		return obj;
 	}
 }
 
 class Worksheet {
-	constructor(worksheetObj) {
+	constructor(worksheetObj = {spreadsheetId: null, properties: {title: null}, sheets: []}) {
 		this.worksheetId = worksheetObj.spreadsheetId;
 		this.worksheetTitle = worksheetObj.properties.title;
+		this.maxId = 0;
 		this.sheets = {};
-		this.metadata = [];
+		this.metadata = {};
 		for (let i = 0; i < worksheetObj.sheets.length; i++) {
 			let title = worksheetObj.sheets[i].properties.title;
-			this.sheets[title] = new Sheet(worksheetObj.sheets[i]);
-			let sheetMeta = sheetObj.developerMetadata;
-			this.metadata[title] = {};			
-			for (let k = 0; k < sheetMeta.length; k++) {
-				this.metadata[title][sheetMeta[i].metadataKey] = new Metadata(sheetMeta[i]);
-			}	
+			this.sheets[title] = Sheet.parse(worksheetObj.sheets[i]);
+			this.metadata[title] = Metadata.parse(worksheetObj.sheets[i]);
 		}
 	}
 	simplify(){
@@ -91,17 +185,203 @@ class Worksheet {
 		for (let sheetTitle in this.sheets) {
 			this.sheets[sheetTitle] = this.sheets[sheetTitle].data;
 			let meta = this.metadata;
-			for (let metaKey in this.metadata[sheetTitle]) {
-				this.metadata[sheetTitle][metaKey] = this.metadata[sheetTitle][metaKey].value;
+			this.metadata = {};
+			for (let sheetMetaTitle in meta) {
+				this.metadata[sheetMetaTitle] = null;
+				for (let metaKey in meta[sheetMetaTitle].data) {
+					if (!this.metadata[sheetMetaTitle]) this.metadata[sheetMetaTitle] = {};
+					this.metadata[sheetMetaTitle][metaKey] = meta[sheetMetaTitle].data[metaKey].value;
+				}
 			}
 		}
 		delete this.worksheetId;
 		delete this.worksheetTitle;
 		return this;
 	}
+	static create(title, gridData = {}, metadata = {}){
+		if (!title) throw new Error('Missing Spreadsheet Title');
+		let generatedWorksheet = new Worksheet();
+		generatedWorksheet.worksheetTitle = title;
+		for (let sheetTitle in gridData) {
+			generatedWorksheet.sheets[sheetTitle] = new Sheet(sheetTitle, gridData[sheetTitle]);
+			this.maxId = Math.max(this.maxId, generatedWorksheet.sheets[sheetTitle].sheetId);
+		}
+		for (let sheetTitle in metadata) {
+			//if (!gridData[sheetTitle]) throw new Error(`${sheetTitle} does not exist as a sheet title`);
+			generatedWorksheet.metadata[sheetTitle] = {};
+			for (let metaTitle in metadata[sheetTitle]) {
+				generatedWorksheet.metadata[sheetTitle] = new Metadata(sheetTitle, metadata[sheetTitle]);
+			}
+		}
+		return generatedWorksheet;
+	}
+	toSpreadsheetObject(){
+		let obj = {
+			properties: {
+				title: this.worksheetTitle
+			},
+		}
+		if (this.worksheetId) obj.spreadsheetId = this.worksheetId;
+		if (!empty(this.sheets)) obj.sheets = [];
+		for (let sheetTitle in this.sheets) {
+			obj.sheets.push(this.sheets[sheetTitle].toSheetObject(this.metadata[sheetTitle]));
+		}
+		return obj
+	}
+	createSheetId(){
+		this.maxId++;
+		return this.maxId;
+	}
 }
 
-class Sheet {
+class Google {
+	constructor(client_id, token){
+		let client_secret;
+		if (typeof client_id === 'object') {
+			client_secret = client_id.client_secret;
+			client_id = client_id.client_id;
+		}
+		this.oauth = new google.auth.OAuth2(client_id, client_secret);
+		this.oauth.setCredentials(token);
+	}
+}
+
+class Drive extends Google {
+}
+
+class Spreadsheets extends Google {
+	constructor(client_id, token) {
+		super(client_id, token);
+		this.spreadsheets = google.sheets({version: "v4", auth: this.oauth}).spreadsheets;
+	}
+	createSpreadsheet(title, gridData, metadata) {
+		return new Promise((resolve, reject)=>{
+			this.spreadsheets.create({resource: Worksheet.create(title, gridData, metadata).toSpreadsheetObject()}, (err, res)=>{
+				if (err) return reject(err);
+				resolve(new Worksheet(res.data));
+			});
+		});
+	}
+	getRawSpreadsheet(spreadsheetId) {
+		return new Promise((resolve, reject)=>{
+			this.spreadsheets.get({spreadsheetId: spreadsheetId, includeGridData: false}, (err, res)=>{
+				if (err) reject(err);
+				else {
+					resolve(new Worksheet(res.data));
+				}
+			});
+		});
+	}
+	async getSpreadsheet(spreadsheetId, _options = {}){
+		_options = validate(_options, {include: []});
+		if (!(_options.include instanceof Array)) _options.include = [_options.include];
+		if (_options.include.length > 0) {
+			let preSpreadsheet = await this.getRawSpreadsheet(spreadsheetId);
+			return await new Promise((resolve, reject)=>{
+				let dataFilters = [];
+				for (let i = 0; i < _options.include.length; i++) {
+					if (!preSpreadsheet.sheets[_options.include]) return reject(new Error('Sheet name does not exist'));
+					dataFilters.push({gridRange: {sheetId: preSpreadsheet.sheets[_options.include].sheetId}});
+				}
+				this.spreadsheets.getByDataFilter({
+					spreadsheetId: spreadsheetId, 
+					resource: {
+						dataFilters: dataFilters, 
+						includeGridData: true
+					}
+				}, (err, res)=>{
+					if (err) return reject(err);
+					resolve(new Worksheet(res.data));
+				});
+			});
+		} else {
+			return await new Promise((resolve, reject)=>{
+				this.spreadsheets.get({
+					spreadsheetId: spreadsheetId,
+					includeGridData: true
+				}, (err, res)=>{
+					if (err) return reject(err);
+					resolve(new Worksheet(res.data));
+				});
+			});
+		}
+	}
+	async setSpreadsheet(spreadsheetId, gridData, metadata){
+		//for (let sheetTitle in gridData) if (_options.include.indexOf(sheetTitle) === -1) throw new Error(`${sheetTitle} not included in options`);
+		let preSpreadsheet = await this.getRawSpreadsheet(spreadsheetId),
+			newSpreadsheet = Worksheet.create(preSpreadsheet.worksheetTitle, gridData, metadata);
+		let requests = [];
+		let sheetTitles = {};
+		for (let key in newSpreadsheet.sheets) sheetTitles[key] = true;
+		for (let key in newSpreadsheet.metadata) sheetTitles[key] = true;
+		for (let sheetTitle in sheetTitles) {
+			let newConvertedSheet, oldConvertedSheet = {developerMetadata: []}, 
+				newSheet = newSpreadsheet.sheets[sheetTitle], 
+				preSheet = preSpreadsheet.sheets[sheetTitle],
+				newMeta = newSpreadsheet.metadata[sheetTitle],
+				preMeta = preSpreadsheet.metadata[sheetTitle] || {data: {}};
+			if(newSheet) newSheet.fillEmpty(preSheet);
+			if(newMeta) newMeta.fillEmpty(preMeta);
+			console.log(newMeta);
+			if (newSheet && !preSheet) {
+				let tempId = preSpreadsheet.generateId();
+				newSheet.sheetId = tempId;			
+				requests.push({
+					addSheet: {
+						properties: newSheet.toSheetObject().properties
+					}
+				});				
+			}
+			if (newMeta) {
+				for (let metaKey in newMeta.data) {
+					if (!preMeta.data[metaKey]) {
+						requests.push({
+							createDeveloperMetadata: {
+								developerMetadata: newMeta.data[metaKey].toSingleMetadataObject()
+							}
+						});
+					} else if (!newMeta.data[metaKey].equals(preMeta.data[metaKey])) {
+						requests.push({
+							updateDeveloperMetadata: {
+								fields: '*',
+								dataFilters: [{
+									gridRange: {
+										sheedId: newMeta.data[metaKey].parent.path
+									}
+								}],
+								developerMetadata: newMeta.data[metaKey].toSingleMetadataObject()
+							}
+						});						
+					}
+				}
+			}
+			if ((newSheet && preSheet) && (newSheet.rows !== preSheet.rows || tempSheet.columns !== preSheet.columns)) {
+				requests.push({
+					updateSheetProperties: {
+						fields: '*',
+						properties: newSheet.toSheetObject().properties
+					}
+				});				
+			}
+			if (!empty(gridData)) {
+				requests.push({
+					updateCells: {
+						fields: '*',
+						rows: newSheet.toSheetObject().data[0].rowData,
+						range: {
+							sheetId: newSheet.toSheetObject().properties.sheetId,
+							startRowIndex: 0,
+							startColumnIndex: 0,
+						}
+					}
+				});
+			}
+			return requests;
+		}
+	}
+}
+
+/*class Sheet {
 	constructor(sheetObj){
 		let arr = [];
 		let data = sheetObj.data[0].rowData;
@@ -130,7 +410,7 @@ class Sheet {
 		this.id = sheetObj.properties.sheetId;
 		this.dimensions = {row: sheetObj.properties.gridProperties.rowCount, col: sheetObj.properties.gridProperties.columnCount};
 	}
-}
+}*/
 
 function OAUTH2(clientJSON, token) {
 	let client_id, client_secret, redirect_uris;
