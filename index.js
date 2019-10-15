@@ -22,18 +22,21 @@ class SingleMetadata {
 	constructor(key, value, id, parentMetadata) {
 		this.key = key;
 		this.value = value;
+		if (this.value !== undefined && typeof this.value === 'string') {
+			if (typeof JSON.parse(this.value) === 'object') this.value = JSON.parse(this.value);
+			else if (this.value === 'true' || this.value === 'false') this.value = JSON.parse(this.value);
+			else if (!isNaN(Number(this.value))) this.value = Number(this.value);
+		}
 		this.id = id;
 		this.parent = parentMetadata;
 	}
 	toSingleMetadataObject(){
 		let temp = {
 			metadataKey: this.key,
-			metadataValue: String(this.value),
+			metadataValue: typeof this.value === 'object' ? JSON.stringify(this.value) : String(this.value),
 			visibility: 'DOCUMENT',
-			location: {
-				sheetId: this.parent.path
-			}
 		};
+		if (this.parent.path) temp.location = {sheetId: this.parent.path};
 		if (this.id) temp.metadataId = this.id;		
 		return temp;
 	}
@@ -78,7 +81,7 @@ class Metadata {
 	toMetadataObject(){
 		let obj = [];
 		for (let metaKey in this.data) {
-			obj.push(this.data[metaKey].toSingleMetadataObject());
+			if (this.data[metaKey].value !== undefined) obj.push(this.data[metaKey].toSingleMetadataObject());
 		}
 		return obj;
 	}
@@ -139,7 +142,6 @@ class Sheet {
 	toSheetObject(metadata = {data: {}}){
 		let obj = {
 			properties: {
-				sheetId: this.sheetId,
 				title: this.sheetTitle,
 				gridProperties: {
 					rowCount: this.rows,
@@ -152,6 +154,9 @@ class Sheet {
 				startColumn: 0,
 			}],
 			developerMetadata: [],
+		}
+		if (this.sheetId) {
+			obj.properties.sheetId = this.sheetId;
 		}
 		for (let i = 0; i < this.data.length; i++) {
 			let singleRow = {
@@ -192,6 +197,7 @@ class Worksheet {
 			title: this.worksheetTitle,
 			sheets: {},
 			metadata: {},
+			id: this.worksheetId
 		}
 		for (let sheetTitle in this.sheets) {
 			obj.sheets[sheetTitle] = this.sheets[sheetTitle].data;
@@ -211,14 +217,18 @@ class Worksheet {
 		generatedWorksheet.worksheetTitle = title;
 		for (let sheetTitle in gridData) {
 			generatedWorksheet.sheets[sheetTitle] = new Sheet(sheetTitle, gridData[sheetTitle]);
+			//if (!generatedWorksheet.sheets[sheetTitle].sheetId) generatedWorksheet.sheets[sheetTitle].sheetId = generatedWorksheet.createSheetId();
 			this.maxId = Math.max(this.maxId, generatedWorksheet.sheets[sheetTitle].sheetId);
 		}
 		for (let sheetTitle in metadata) {
 			generatedWorksheet.metadata[sheetTitle] = {};
 			for (let metaTitle in metadata[sheetTitle]) {
+				//generatedWorksheet.sheets[sheetTitle] ? generatedWorksheet.sheets[sheetTitle].sheetId : null
 				generatedWorksheet.metadata[sheetTitle] = new Metadata(null, metadata[sheetTitle]);
 			}
 		}
+		console.log(generatedWorksheet);
+		console.log(JSON.stringify(generatedWorksheet.toSpreadsheetObject()));
 		return generatedWorksheet;
 	}
 	toSpreadsheetObject(){
@@ -253,6 +263,54 @@ class Google {
 }
 
 class Drive extends Google {
+	constructor(client_id, token) {
+		super(client_id, token);
+		this.drive = google.drive({version: "v3", auth: this.oauth}).files;
+	}
+	getFile(fileId) {
+		return new Promise((resolve, reject)=>{
+			this.drive.get({fileId: fileId, fields: '*'}, (err, res)=>{
+				if (err) {
+					if (err.errors[0].reason === 'notFound') {
+						console.warn('\x1b[33m%s\x1b[0m', `File: '${fileId}' Not Found`);
+						resolve(null);
+					} else reject(err);
+				}
+				else resolve(res.data);
+			});
+		});
+	}
+	setFile(fileId, properties, fields) {
+		let request = {
+			fileId: fileId, 
+			resource: properties,
+			fields: '*'
+		};
+		return new Promise((resolve, reject)=>{
+			this.drive.update(request, (err, res)=>{
+				if (err) {
+					if (err.errors[0].reason === 'notFound') {
+						console.warn('\x1b[33m%s\x1b[0m', `File: '${fileId}' Not Found`);
+						resolve(null);
+					} else reject(err);
+				}
+				else resolve(res.data);
+			});
+		});		
+	}
+	async deleteFile(fileId) {
+		return await new Promise((resolve, reject)=>{
+			this.drive.delete({fileId: fileId}, (err, res)=>{
+				if (err) {
+					if (err.errors[0].reason === 'notFound') {
+						console.warn('\x1b[33m%s\x1b[0m', `File: '${fileId}' Not Found`);
+						resolve(false);
+					} else reject(err);
+				}
+				else resolve(true);
+			});
+		});		
+	}
 }
 
 class Spreadsheets extends Google {
@@ -264,7 +322,7 @@ class Spreadsheets extends Google {
 		return new Promise((resolve, reject)=>{
 			this.spreadsheets.create({resource: Worksheet.create(title, gridData, metadata).toSpreadsheetObject()}, (err, res)=>{
 				if (err) return reject(err);
-				resolve(new Worksheet(res.data));
+				resolve(new Worksheet(res.data).simplify());
 			});
 		});
 	}
@@ -297,7 +355,7 @@ class Spreadsheets extends Google {
 					}
 				}, (err, res)=>{
 					if (err) return reject(err);
-					resolve(new Worksheet(res.data));
+					resolve(new Worksheet(res.data).simplify());
 				});
 			});
 		} else {
@@ -307,7 +365,7 @@ class Spreadsheets extends Google {
 					includeGridData: true
 				}, (err, res)=>{
 					if (err) return reject(err);
-					resolve(new Worksheet(res.data));
+					resolve(new Worksheet(res.data).simplify());
 				});
 			});
 		}
@@ -339,7 +397,6 @@ class Spreadsheets extends Google {
 			if(newMeta) newMeta.fillEmpty(preMeta);
 			if (newSheet && !preSheet) {
 				let tempId = preSpreadsheet.createSheetId();
-				console.log(newSheet);
 				newSheet.sheetId = tempId;			
 				requests.push({
 					addSheet: {
@@ -349,7 +406,18 @@ class Spreadsheets extends Google {
 			}
 			if (newMeta) {
 				for (let metaKey in newMeta.data) {
-					if (!preMeta.data[metaKey]) {
+					if (newMeta.data[metaKey].value === undefined && newMeta.data[metaKey].id) {
+						requests.push({
+							deleteDeveloperMetadata: {
+								dataFilter: {
+									developerMetadataLookup: {
+										metadataId: newMeta.data[metaKey].id
+									}
+								}
+							}
+						})
+					}
+					else if (!preMeta.data[metaKey]) {
 						requests.push({
 							createDeveloperMetadata: {
 								developerMetadata: newMeta.data[metaKey].toSingleMetadataObject()
@@ -403,7 +471,7 @@ class Spreadsheets extends Google {
 				}
 			}, (err, res)=>{
 				if (err) reject(err);
-				else resolve(new Worksheet(res.data.updatedSpreadsheet));
+				else resolve(new Worksheet(res.data.updatedSpreadsheet).simplify());
 				//else resolve(new Worksheet(res.data));
 			});
 		});
@@ -930,25 +998,7 @@ function filter(simpleObj, prop){
 function MiniSheets_Global(auth, token){
 	return new MiniSheets(auth, token);
 }
-module.exports = MiniSheets_Global;
-
-var token = {
-		"access_token": "ya29.GlvmBnWB0uXWYZ4uia85QvAsayjqtWo34Bu0sEDQXmjAb2BiRvxl62VdXdU3fgW1LX7vRPjALM2sNPtqQDX3ZWxdNmLVP82v1Yh-7foRsmWOn2MYhiuFnHWscA5Y",
-		"refresh_token": "1/f3EZIOk-U0p-NV-eRMVFIVv-349i6XhI7CrbVrYAG3s",
-		"scope": "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/spreadsheets",
-		"token_type": "Bearer",
-		"id_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6IjZmNjc4MWJhNzExOTlhNjU4ZTc2MGFhNWFhOTNlNWZjM2RjNzUyYjUiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJhenAiOiI3MTQ1OTIxMjkyMTgtYW92MDltcTJxZHRqZGJhYWJyNDE3dHNkdm8ybWhjZTYuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJhdWQiOiI3MTQ1OTIxMjkyMTgtYW92MDltcTJxZHRqZGJhYWJyNDE3dHNkdm8ybWhjZTYuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJzdWIiOiIxMTQ4ODQ4NDQyNzA0NTExNjIxMzIiLCJhdF9oYXNoIjoiYTlwa1YwM1RpQnN3N1RUbm9HN1ZFZyIsIm5hbWUiOiJXaWxzb24gTmd1eWVuIiwicGljdHVyZSI6Imh0dHBzOi8vbGg0Lmdvb2dsZXVzZXJjb250ZW50LmNvbS8ta2xWQWtvZGZpbVkvQUFBQUFBQUFBQUkvQUFBQUFBQUFBQ28vb0MyRmFfWG9SNzAvczk2LWMvcGhvdG8uanBnIiwiZ2l2ZW5fbmFtZSI6IldpbHNvbiIsImZhbWlseV9uYW1lIjoiTmd1eWVuIiwibG9jYWxlIjoiZW4iLCJpYXQiOjE1NTQ3ODEwMzUsImV4cCI6MTU1NDc4NDYzNX0.KZx3wyKfIl6-QI2P6AhsqSt3rbd_TKh77hcbRbxSScW8n_MYn6naQWLhjH6si046UvVRwPIizUjkBKl7bfDqONbuYcWsIEu4qq1a4ENH8KngXDS_3zpfJpGx9gOyL18DIvan5Wsn_2voi-w78bDtznT0ecwYC4fA3kqvI_jfRNMrcwY_xmBWacA_22wddiqjpH7U0RnZ0JQRdXuzP-CBrnNBA8NWTzZCHehlCB51I-_kd3j1QAkGvUfyOzlqeHi-Z8wBJ_Vuj2DdyjJL2uLWknpt17xpPyPM29FSpXi0EzM9CDJWm__HojkmIpIp5oyzNG_FbN_UhAOJjSOyTAze-Q",
-		"expiry_date": 1554784635692
-	}
-	//714592129218-8gfbri0ung8fm5bain1i0t0shjdkquhp.apps.googleusercontent.com
-const Sheets = new Spreadsheets("714592129218-aov09mq2qdtjdbaabr417tsdvo2mhce6.apps.googleusercontent.com", token);
-Sheets.setSpreadsheet('1E5VXVuOGmbihXQkMveUHpwmXs3mO0B2yUAdAQRs7dOs', {"Thu Sep 19 2019": true}).then(d=>{
-	console.log(d.simplify());
-});
-//Sheets.getSpreadsheet("1E5VXVuOGmbihXQkMveUHpwmXs3mO0B2yUAdAQRs7dOs").then(d=>console.log(d.simplify()));
-
-(function(){
-
-}());
-
-//console.log(Worksheet.create('hello', {Sheet1: [[]]}, {Sheet1: {lmao: 'yeet'}}).toSpreadsheetObject());
+module.exports = {
+	Drive: Drive,
+	Spreadsheets: Spreadsheets
+};
