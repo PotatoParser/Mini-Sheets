@@ -20,7 +20,7 @@
   "author": "Wilson Nguyen",
   "license": "MIT",
   "dependencies": {
-    "googleapis": "^38.0.0"
+    "googleapis": "^44.0.0"
   },
   "devDependencies": {},
   "repository": {
