@@ -5,7 +5,9 @@ Minified and simplified Google Sheets with [Promises](https://developer.mozilla.
 ```javascript
 const {Drive, Spreadsheets} = require('minisheets');
 const minisheets = new Spreadsheets(CLIENT_ID, TOKEN);
-minisheets.createSpreadsheet(spreadsheetTitle, {sheet1: [[1]]}).then(worksheet=>console.log(worksheet)).catch(e=>console.log(e));
+minisheets.createSpreadsheet(spreadsheetTitle, {sheet1: [[1]]})
+    .then(worksheet=>console.log(worksheet))
+    .catch(e=>console.log(e));
 ```
 
 ## Table of Contents
@@ -94,7 +96,7 @@ Arguments:
 + `gridData` <[**Grid Data Format**](#grid-data-format)>: Object of sheets
 + `metadata` <[**Metadata Format**](#metadata-format)>: Object of metadata
 
-Returns:
+Returns **Promise**:
 + <[**Worksheet Object**](#worksheet-object)>
 
 Usage:
@@ -123,7 +125,7 @@ Arguments:
 + (OPTIONAL) <**Object**>: options Object
     + `include` <**String**\|**Array**>: only include sheets with specified titles
 
-Returns:
+Returns **Promise**:
 + <[**Worksheet Object**](#worksheet-object)>
 
 Usage:
@@ -152,7 +154,7 @@ Arguments:
 + `gridData` <[**Grid Data Format**](#grid-data-format)>: Object of sheets
 + `metadata` <[**Metadata Format**](#metadata-format)>: Object of metadata
 
-Returns:
+Returns **Promise**:
 + <[**Worksheet Object**](#worksheet-object)>
 
 Usage:
@@ -186,7 +188,7 @@ let files = new Drive(clientId, token);
 Arguments:
 + `fileId` <**String**>: ID of file
 
-Return:
+Returns **Promise**:
 + <**Object**>: [metadata](https://developers.google.com/drive/api/v3/reference/files)
     + `null` if file does not exist
 
@@ -208,7 +210,7 @@ files.getFile(fileId).then(console.log);
 Arguments:
 + `fileId` <**String**>: ID of file
 
-Return:
+Returns **Promise**:
 + <**Object**>: [metadata](https://developers.google.com/drive/api/v3/reference/files)
     + `null` if file does not exist
 
@@ -224,7 +226,7 @@ files.deleteFile(fileId).then(console.log); // true
 Arguments:
 + `fileId` <**String**>: ID of file
 
-Return:
+Returns **Promise**:
 + <**Boolean**>: `false` if the file does not exist 
 
 Usage:
@@ -234,6 +236,7 @@ files.setFile(fileId, {name: newName}).then(console.log);
     "kind": "drive#file",
     "id": String,
     "name": String,
-    "mimeType": String
+    "mimeType": String,
+    ...
 }*/
 ```
