@@ -7,7 +7,7 @@ const {Drive, Spreadsheets} = require('minisheets');
 const minisheets = new Spreadsheets(CLIENT_ID, TOKEN);
 minisheets.createSpreadsheet(spreadsheetTitle, {sheet1: [[1]]})
     .then(worksheet=>console.log(worksheet))
-    .catch(e=>console.log(e));
+    .catch(err=>console.log(err));
 ```
 
 ## Table of Contents

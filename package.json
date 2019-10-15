@@ -1,6 +1,6 @@
 {
   "name": "mini-sheets",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "description": "Minified and simplified Google Sheets",
   "main": "index.js",
   "scripts": {
@@ -10,7 +10,12 @@
     "Google",
     "Sheets",
     "Spreadsheets",
-    "CSV"
+    "CSV",
+    "Drive",
+    "json",
+    "oauth",
+    "authentication",
+    "worksheet"
   ],
   "author": "Wilson Nguyen",
   "license": "MIT",

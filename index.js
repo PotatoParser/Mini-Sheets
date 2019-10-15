@@ -1,14 +1,15 @@
 const {google} = require("googleapis");
-const fs = require('fs');
-const path = require('path');
-const OPTIONS = {include: [], flex: false};
 
 function firstKey(obj){
 	return Object.keys(obj)[0];
 }
+
+
 function empty(obj){
 	return Object.keys(obj).length === 0;
 }
+
+
 function validate(originalObj, verifyObj) {
 	for (let key in verifyObj) {
 		if (originalObj[key] !== undefined) {
@@ -17,6 +18,7 @@ function validate(originalObj, verifyObj) {
 	}
 	return verifyObj;
 }
+
 
 class SingleMetadata {
 	constructor(key, value, id, parentMetadata) {
@@ -48,6 +50,7 @@ class SingleMetadata {
 		return true;
 	}
 }
+
 
 class Metadata {
 	constructor(sheetMetaPath = null, sheetMetaPairs = {}) {
@@ -86,6 +89,7 @@ class Metadata {
 		return obj;
 	}
 }
+
 
 class Sheet {
 	constructor(sheetTitle, sheetGridData) {
@@ -179,6 +183,7 @@ class Sheet {
 	}
 }
 
+
 class Worksheet {
 	constructor(worksheetObj = {spreadsheetId: null, properties: {title: null}, sheets: []}) {
 		this.worksheetId = worksheetObj.spreadsheetId;
@@ -246,6 +251,7 @@ class Worksheet {
 	}
 }
 
+
 class gAPI {
 	constructor(client_id, token){
 		let client_secret;
@@ -257,6 +263,7 @@ class gAPI {
 		this.oauth.setCredentials(token);
 	}
 }
+
 
 class Drive extends gAPI {
 	constructor(client_id, token) {
@@ -308,6 +315,7 @@ class Drive extends gAPI {
 		});		
 	}
 }
+
 
 class Spreadsheets extends gAPI {
 	constructor(client_id, token) {
@@ -471,6 +479,8 @@ class Spreadsheets extends gAPI {
 		return requests;
 	}
 }
+
+
 module.exports = {
 	Drive: Drive,
 	Spreadsheets: Spreadsheets
