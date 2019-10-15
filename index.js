@@ -28,7 +28,7 @@ class SingleMetadata {
 	toSingleMetadataObject(){
 		let temp = {
 			metadataKey: this.key,
-			metadataValue: this.value,
+			metadataValue: String(this.value),
 			visibility: 'DOCUMENT',
 			location: {
 				sheetId: this.parent.path
@@ -85,15 +85,22 @@ class Metadata {
 }
 
 class Sheet {
-	constructor(sheetTitle, sheetGridData = [[]]) {
+	constructor(sheetTitle, sheetGridData) {
 		this.sheetId = null;
 		this.sheetTitle = sheetTitle;
+		if (sheetGridData === null) {
+			this.data = null;
+			return this;
+		}
+		if (sheetGridData === true) sheetGridData = [[]];
+		sheetGridData = sheetGridData || [[]];
+		if (!sheetGridData[0]) throw new Error('Incomplete grid data');
 		let columnCount = sheetGridData[0].length;
 		for (let i = 1; i < sheetGridData.length; i++) {
 			if (sheetGridData[i].length !== columnCount) throw new Error('Column count does not match per row');
 		}
-		this.rows = sheetGridData.length;
-		this.columns = sheetGridData[0].length;
+		this.rows = sheetGridData.length || 1;
+		this.columns = sheetGridData[0].length || 1;
 		this.data = sheetGridData;
 	}
 	static parse(sheetObj) {
@@ -103,7 +110,7 @@ class Sheet {
 		parsedSheet.rows = sheetObj.properties.gridProperties.rowCount;
 		parsedSheet.columns = sheetObj.properties.gridProperties.columnCount;
 		parsedSheet.data = [];
-		if (sheetObj.data) {
+		if (sheetObj.data && sheetObj.data[0].rowData) {
 			let sheetData = sheetObj.data[0].rowData;
 			for (let i = 0; i < sheetData.length; i++) {
 				let sheetRow = sheetData[i].values;
@@ -181,22 +188,22 @@ class Worksheet {
 		}
 	}
 	simplify(){
-		this.title = this.worksheetTitle;
+		let obj = {
+			title: this.worksheetTitle,
+			sheets: {},
+			metadata: {},
+		}
 		for (let sheetTitle in this.sheets) {
-			this.sheets[sheetTitle] = this.sheets[sheetTitle].data;
-			let meta = this.metadata;
-			this.metadata = {};
-			for (let sheetMetaTitle in meta) {
-				this.metadata[sheetMetaTitle] = null;
-				for (let metaKey in meta[sheetMetaTitle].data) {
-					if (!this.metadata[sheetMetaTitle]) this.metadata[sheetMetaTitle] = {};
-					this.metadata[sheetMetaTitle][metaKey] = meta[sheetMetaTitle].data[metaKey].value;
-				}
+			obj.sheets[sheetTitle] = this.sheets[sheetTitle].data;
+		}
+		for (let sheetTitle in this.metadata) {
+			if (!this.metadata[sheetTitle] || empty(this.metadata[sheetTitle].data)) continue;
+			obj.metadata[sheetTitle] = {};
+			for (let metaKey in this.metadata[sheetTitle].data) {
+				obj.metadata[sheetTitle][metaKey] = this.metadata[sheetTitle].data[metaKey].value;
 			}
 		}
-		delete this.worksheetId;
-		delete this.worksheetTitle;
-		return this;
+		return obj;
 	}
 	static create(title, gridData = {}, metadata = {}){
 		if (!title) throw new Error('Missing Spreadsheet Title');
@@ -207,10 +214,9 @@ class Worksheet {
 			this.maxId = Math.max(this.maxId, generatedWorksheet.sheets[sheetTitle].sheetId);
 		}
 		for (let sheetTitle in metadata) {
-			//if (!gridData[sheetTitle]) throw new Error(`${sheetTitle} does not exist as a sheet title`);
 			generatedWorksheet.metadata[sheetTitle] = {};
 			for (let metaTitle in metadata[sheetTitle]) {
-				generatedWorksheet.metadata[sheetTitle] = new Metadata(sheetTitle, metadata[sheetTitle]);
+				generatedWorksheet.metadata[sheetTitle] = new Metadata(null, metadata[sheetTitle]);
 			}
 		}
 		return generatedWorksheet;
@@ -307,7 +313,6 @@ class Spreadsheets extends Google {
 		}
 	}
 	async setSpreadsheet(spreadsheetId, gridData, metadata){
-		//for (let sheetTitle in gridData) if (_options.include.indexOf(sheetTitle) === -1) throw new Error(`${sheetTitle} not included in options`);
 		let preSpreadsheet = await this.getRawSpreadsheet(spreadsheetId),
 			newSpreadsheet = Worksheet.create(preSpreadsheet.worksheetTitle, gridData, metadata);
 		let requests = [];
@@ -321,10 +326,20 @@ class Spreadsheets extends Google {
 				newMeta = newSpreadsheet.metadata[sheetTitle],
 				preMeta = preSpreadsheet.metadata[sheetTitle] || {data: {}};
 			if(newSheet) newSheet.fillEmpty(preSheet);
+			if (newSheet.data === null) {
+				if (newSheet.sheetId) {
+					requests.push({
+						deleteSheet: {
+							sheetId: newSheet.sheetId
+						}
+					});
+				}
+				continue;
+			}
 			if(newMeta) newMeta.fillEmpty(preMeta);
-			console.log(newMeta);
 			if (newSheet && !preSheet) {
-				let tempId = preSpreadsheet.generateId();
+				let tempId = preSpreadsheet.createSheetId();
+				console.log(newSheet);
 				newSheet.sheetId = tempId;			
 				requests.push({
 					addSheet: {
@@ -345,8 +360,8 @@ class Spreadsheets extends Google {
 							updateDeveloperMetadata: {
 								fields: '*',
 								dataFilters: [{
-									gridRange: {
-										sheedId: newMeta.data[metaKey].parent.path
+									developerMetadataLookup: {
+										metadataId: newMeta.data[metaKey].id
 									}
 								}],
 								developerMetadata: newMeta.data[metaKey].toSingleMetadataObject()
@@ -355,7 +370,7 @@ class Spreadsheets extends Google {
 					}
 				}
 			}
-			if ((newSheet && preSheet) && (newSheet.rows !== preSheet.rows || tempSheet.columns !== preSheet.columns)) {
+			if ((newSheet && preSheet) && (newSheet.rows !== preSheet.rows || newSheet.columns !== preSheet.columns)) {
 				requests.push({
 					updateSheetProperties: {
 						fields: '*',
@@ -376,8 +391,23 @@ class Spreadsheets extends Google {
 					}
 				});
 			}
-			return requests;
 		}
+		if (requests.length === 0) return null;
+		return await new Promise((resolve, reject)=>{
+			this.spreadsheets.batchUpdate({
+				spreadsheetId: spreadsheetId, 
+				resource: {
+					requests: requests, 
+					includeSpreadsheetInResponse: true, 
+					responseIncludeGridData: true
+				}
+			}, (err, res)=>{
+				if (err) reject(err);
+				else resolve(new Worksheet(res.data.updatedSpreadsheet));
+				//else resolve(new Worksheet(res.data));
+			});
+		});
+		return requests;
 	}
 }
 
@@ -901,3 +931,24 @@ function MiniSheets_Global(auth, token){
 	return new MiniSheets(auth, token);
 }
 module.exports = MiniSheets_Global;
+
+var token = {
+		"access_token": "ya29.GlvmBnWB0uXWYZ4uia85QvAsayjqtWo34Bu0sEDQXmjAb2BiRvxl62VdXdU3fgW1LX7vRPjALM2sNPtqQDX3ZWxdNmLVP82v1Yh-7foRsmWOn2MYhiuFnHWscA5Y",
+		"refresh_token": "1/f3EZIOk-U0p-NV-eRMVFIVv-349i6XhI7CrbVrYAG3s",
+		"scope": "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/spreadsheets",
+		"token_type": "Bearer",
+		"id_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6IjZmNjc4MWJhNzExOTlhNjU4ZTc2MGFhNWFhOTNlNWZjM2RjNzUyYjUiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJhenAiOiI3MTQ1OTIxMjkyMTgtYW92MDltcTJxZHRqZGJhYWJyNDE3dHNkdm8ybWhjZTYuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJhdWQiOiI3MTQ1OTIxMjkyMTgtYW92MDltcTJxZHRqZGJhYWJyNDE3dHNkdm8ybWhjZTYuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJzdWIiOiIxMTQ4ODQ4NDQyNzA0NTExNjIxMzIiLCJhdF9oYXNoIjoiYTlwa1YwM1RpQnN3N1RUbm9HN1ZFZyIsIm5hbWUiOiJXaWxzb24gTmd1eWVuIiwicGljdHVyZSI6Imh0dHBzOi8vbGg0Lmdvb2dsZXVzZXJjb250ZW50LmNvbS8ta2xWQWtvZGZpbVkvQUFBQUFBQUFBQUkvQUFBQUFBQUFBQ28vb0MyRmFfWG9SNzAvczk2LWMvcGhvdG8uanBnIiwiZ2l2ZW5fbmFtZSI6IldpbHNvbiIsImZhbWlseV9uYW1lIjoiTmd1eWVuIiwibG9jYWxlIjoiZW4iLCJpYXQiOjE1NTQ3ODEwMzUsImV4cCI6MTU1NDc4NDYzNX0.KZx3wyKfIl6-QI2P6AhsqSt3rbd_TKh77hcbRbxSScW8n_MYn6naQWLhjH6si046UvVRwPIizUjkBKl7bfDqONbuYcWsIEu4qq1a4ENH8KngXDS_3zpfJpGx9gOyL18DIvan5Wsn_2voi-w78bDtznT0ecwYC4fA3kqvI_jfRNMrcwY_xmBWacA_22wddiqjpH7U0RnZ0JQRdXuzP-CBrnNBA8NWTzZCHehlCB51I-_kd3j1QAkGvUfyOzlqeHi-Z8wBJ_Vuj2DdyjJL2uLWknpt17xpPyPM29FSpXi0EzM9CDJWm__HojkmIpIp5oyzNG_FbN_UhAOJjSOyTAze-Q",
+		"expiry_date": 1554784635692
+	}
+	//714592129218-8gfbri0ung8fm5bain1i0t0shjdkquhp.apps.googleusercontent.com
+const Sheets = new Spreadsheets("714592129218-aov09mq2qdtjdbaabr417tsdvo2mhce6.apps.googleusercontent.com", token);
+Sheets.setSpreadsheet('1E5VXVuOGmbihXQkMveUHpwmXs3mO0B2yUAdAQRs7dOs', {"Thu Sep 19 2019": true}).then(d=>{
+	console.log(d.simplify());
+});
+//Sheets.getSpreadsheet("1E5VXVuOGmbihXQkMveUHpwmXs3mO0B2yUAdAQRs7dOs").then(d=>console.log(d.simplify()));
+
+(function(){
+
+}());
+
+//console.log(Worksheet.create('hello', {Sheet1: [[]]}, {Sheet1: {lmao: 'yeet'}}).toSpreadsheetObject());
