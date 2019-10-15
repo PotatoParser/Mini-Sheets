@@ -1,193 +1,239 @@
 # Mini Sheets
-Minified and simplified Google Sheets
+Minified and simplified Google Sheets with [Promises](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise)
 
 ## Example Usage
 ```javascript
-const mSheets = require("minisheets");
-const MiniSheets = mSheets(PATH_TO_OAUTH_OBJECT, PATH_TO_TOKEN_OBJECT);
-MiniSheets.create({
-    spreadsheetTitle:{
-        sheetTitle:[["hello"]]
-    }
-}).then(minisheet=>console.log(minisheet)).catch(e=>console.log(e));
+const {Drive, Spreadsheets} = require('minisheets');
+const minisheets = new Spreadsheets(CLIENT_ID, TOKEN);
+minisheets.createSpreadsheet(spreadsheetTitle, {sheet1: [[1]]}).then(worksheet=>console.log(worksheet)).catch(e=>console.log(e));
 ```
 
 ## Table of Contents
-+ [MiniSheets](#minisheets)
-    + [Initialization](#initialization)
-+ [Data format (worksheetData)](#data-format-worksheetdata)
-+ [MiniSheet Object](#miniSheet-object)
-+ [MiniSheets Methods [Asynchronous]](#minisheets-methods-asynchronous)
-    + [create(worksheetData)](#createworksheetdata)
-    + [createFromCSV(title, [csv,...])](#createfromcsvtitle-csv)
-    + [get(id, options)](#getid-options)
-    + [exists(id)](#existsid)    
-    + [update(id, worksheetData, options)](#updateid-worksheetdata-options)
-    + [remove(id)](#removeid-folderid)
-    + [move(id, folderId)](#moveid-folderid)
++ [gAPI](#gapi)
+    + [constructor(clientId, token)](#constructorclientid-token)
+    + [Spreadsheets](#spreadsheets)
+        + [Worksheet Object](#worksheet-object)
+            + [Grid Data Format](#grid-data-format)
+            + [Metadata Format](#metadata-format)
+        + [createSpreadsheet(title, gridData, metadata)](#createspreadsheet)
+        + [getSpreadsheet(spreadsheetId, options)](#getspreadsheetspreadsheetid-options)
+        + [setSpreadsheet(spreadsheetId, gridData, metadata)](#setspreadsheetspreadsheetid-griddata-metadata)
+    + [Drive](#drive)
+        + [getFile(fileId)](#getfilefileid)
+        + [setFile(fileId, properties)](#setfilefileid-properties)
+        + [deleteFile(fileId)](#deletefilefildid)
 
-## MiniSheets
+## gAPI
 ---
-### Initialization
-> Initialize the MiniSheets object by authenticating the user
+### constructor(clientId, token)
+> Initialize gAPI (parent class of Drive & Spreadsheets)
 
 Arguments:
-+ `OAUTH`<**String**\|**Object**>: contains Google's Oauth2.0 object
-    + <**String**> takes the location of an OAUTH JSON file
-```javascript
-// OAUTH Object (Minimal Required Properties)
-{
-    client_id: "...",
-    client_secret: "...",
-    redirect_uris: ["...", ...]
-}
-```
-+ `Token`<**String**\|**Object**>: contains authentication token object
-    + <**String**> takes the location of a token JSON file
-    + <**Object**> matches [Google API Access Token](https://github.com/googleapis/google-api-nodejs-client#retrieve-access-token)
-```javascript
-// Token object (can be obtained from Google API)
-{
-    access_token: "...",
-    refresh_token: "...", // Optional
-    scope: "...",
-    token_type: "...",
-    expiry_date: ...
-}
-```
++ `clientId`<**String**>: string of client id
++ `token`<**Object**>: authentication token object
 
-Return:
-+ <[**MiniSheets**](#MiniSheets)>
 
+## Spreadsheets
+---
 ```javascript
-const MiniSheets = minisheets(<OAUTH Object>, <Access Token>);
+const {Spreadsheets} = require('minisheets');
+let worksheets = new Spreadsheets(clientId, token);
 ```
 
 ---
+### Worksheet Object
+> Object returned from using Spreadsheets methods
 
-## Data format (worksheetData)
-> Dynamic rows and columns
-
-Accepted cell values:
-+ <**Date**>: converts into a String on spreadsheet
-+ <**Number**>
-+ <**String**>
-+ `null`: empty cell
 ```javascript
 {
-    titleOfSpreadSheet: {
-        titleOfSheet1: [[value, value,...],
-                        [value, null,...,...],
-                        [...]],
-        titleOfSheet2: ...,
+    id: spreadsheetId,
+    title: spreadsheetTitle,
+    sheets: {
+        Sheet1: [[String, Number],
+                 [...]],
+        Sheet2: ...,
+        ...
+    },
+    metadata: {
+        Sheet1: {
+            key1: String,
+            key2: Number,
+            ...
+        },
         ...
     }
 }
 ```
 
----
-
-## MiniSheet Object
+#### Grid Data Format
 ```javascript
 {
-    id: stringID,
-    worksheet: worksheetData,
-    folder: null, // MyDrive
-    details: "",
-    title: "",
-    trashed: false,
+    sheetTitle: [[String, Number],
+                 [..., ...]],
+    ...
 }
 ```
 
-## MiniSheet Methods
+#### Metadata Format
+```javascript
+{
+    sheetTitle: {
+        key: value,
+        ...
+    },
+    ...
+}
+```
+
 ---
-### sheet(sheetTitle)
-> Fetches a sheet based off of title
+### createSpreadsheet(title, gridData, metadata)
+> Creates a new Google Sheets spreadsheet
 
 Arguments:
-+ (OPTIONAL) `sheetTitle` <**String**>: a sheet title OR leave blank for first sheet
++ `title` <**String**>: ID of Google Sheets spreadsheet
++ `gridData` <[**Grid Data Format**](#grid-data-format)>: Object of sheets
++ `metadata` <[**Metadata Format**](#metadata-format)>: Object of metadata
 
-Return:
-+ <**Object**>
+Returns:
++ <[**Worksheet Object**](#worksheet-object)>
+
+Usage:
+```javascript
+worksheets.createSpreadsheet(newTitle, {sheet1: [['Hello', 'World', 1]]}, {sheet1: {key1: 'Hello World'}}).then(console.log);
+/*{
+    title: newTitle,
+    id: generatedId,
+    sheets: {
+        sheet1: [['Hello', 'World', 1]]
+    },
+    metadata: {
+        sheet1: {
+            key1: 'Hello World'
+        }
+    }
+}*/
+```
 
 ---
-
-## MiniSheets Methods *[Asynchronous]*
----
-### create(worksheetData)
-> Creates a spreadsheet based on the data given
+### getSpreadsheet(spreadsheetId, \_options)
+> Gets the data of a Google Sheets spreadsheet
 
 Arguments:
-+ `worksheetData` <**Object**>: an object in the form of [**worksheetData**](#Data-format-%28worksheetData%29)
++ `spreadsheetId` <**String**>: ID of Google Sheets spreadsheet
++ (OPTIONAL) <**Object**>: options Object
+    + `include` <**String**\|**Array**>: only include sheets with specified titles
 
-Return:
-+ <[**MiniSheet Object**](#MiniSheet-Object)>
+Returns:
++ <[**Worksheet Object**](#worksheet-object)>
 
----
-### createFromCSV(title, [csv,...])
-> Converts csv file(s) to a spreadsheet
-
-Arguments:
-+ `title` <**String**>: title of the spreadsheet
-+ `[csv,...]` <**String**\|**Array**(**String**)>: single location of CSV file **OR** array of the locations of CSV files
-
-Return:
-+ <[**MiniSheet Object**](#MiniSheet-Object)>
-
----
-### get(id, options)
-> Gets the data of a spreadsheet
-
-Arguments:
-+ `id` <**String**>: the string id of the spreadsheet
-+ (OPTIONAL) `options` <**Object**>: options object
-    + `include` <**String**|**Array**>: specifies only certain sheets
-
-Return:
-+ <[**MiniSheet Object**](#MiniSheet-Object)>
+Usage:
+```javascript
+worksheets.getSpreadsheet(spreadsheetId, {include: ['sheet1']}).then(console.log);
+/*{
+    title: spreadsheetTitle,
+    id: spreadsheetId,
+    sheets: {
+        sheet1: [['Hello', 'World', 1]]
+    },
+    metadata: {
+        sheet1: {
+            key1: 'Hello World'
+        }
+    }
+}*/
+```
 
 ---
-### exists(id)
-> Check to see if spreadsheet exists and is able to be read/written
+### setSpreadsheet(spreadsheetId, gridData, metadata)
+> Changes a Google Sheets spreadsheet
 
 Arguments:
-+ `id` <**String**>: the string id of the spreadsheet
++ `spreadsheetId` <**String**>: ID of Google Sheets spreadsheet
++ `gridData` <[**Grid Data Format**](#grid-data-format)>: Object of sheets
++ `metadata` <[**Metadata Format**](#metadata-format)>: Object of metadata
 
-Return:
-+ <**Boolean**>
+Returns:
++ <[**Worksheet Object**](#worksheet-object)>
+
+Usage:
+```javascript
+worksheets.setSpreadsheet(spreadsheetId, {sheet1: [['Hello', 'World', 2]]}, {sheet1: {key1: 'Hello There'}}).then(console.log);
+/*{
+    title: spreadsheetTitle,
+    id: spreadsheetId,
+    sheets: {
+        sheet1: [['Hello', 'World', 2]]
+    },
+    metadata: {
+        sheet1: {
+            key1: 'Hello There'
+        }
+    }
+}*/
+```
+
+## Drive
+---
+```javascript
+const {Drive} = require('minisheets');
+let files = new Drive(clientId, token);
+```
 
 ---
-### update(id, worksheetData, options)
-> Updates the spreadsheet with new data
+### getFile(fileId)
+> Fetches the properties of a file within Google Drive
 
 Arguments:
-+ `id` <**String**>: the string id of the spreadsheet
-+ `worksheetData` <**Object**>: an object in the form of [**worksheetData**](#Data-format-%28worksheetData%29)
-+ (OPTIONAL) `options` <**Object**>: options object
-    + `flex` <**Boolean**>: enables exact update from worksheetData **[Default: false]**
-    + `include` <**String**|**Array**>: specifies only certain sheets
++ `fileId` <**String**>: ID of file
 
 Return:
-+ <[**MiniSheet Object**](#MiniSheet-Object)>: contains updated values
++ <**Object**>: [metadata](https://developers.google.com/drive/api/v3/reference/files)
+    + `null` if file does not exist
+
+Usage:
+```javascript
+files.getFile(fileId).then(console.log);
+/*{
+    "kind": "drive#file",
+    "id": String,
+    "name": String,
+    "mimeType": String
+}*/
+```
 
 ---
-### remove(id)
-> Deletes the spreadsheet
+### setFile(fileId, properties)
+> Alters properties of a file within Google Drive
 
 Arguments:
-+ `id` <**String**>: the string id of the spreadsheet
++ `fileId` <**String**>: ID of file
 
 Return:
-+ <**Boolean**>: `true` if the spreadsheet has been successfully deleted
++ <**Object**>: [metadata](https://developers.google.com/drive/api/v3/reference/files)
+    + `null` if file does not exist
+
+Usage:
+```javascript
+files.deleteFile(fileId).then(console.log); // true
+```
 
 ---
-### move(id, folderId)
-> Moves the spreadsheet to a specified folder
+### deleteFile(fileId)
+> Deletes a file within Google Drive
 
 Arguments:
-+ `id` <**String**>: the string id of the spreadsheet
-+ `folderId` <**String**>: the string id of the folder
-    + Use `null` to move to *MyDrive* instead of a folder
++ `fileId` <**String**>: ID of file
 
 Return:
-+ `folderId` <**String**>: the string id of the folder
++ <**Boolean**>: `false` if the file does not exist 
+
+Usage:
+```javascript
+files.setFile(fileId, {name: newName}).then(console.log);
+/*{
+    "kind": "drive#file",
+    "id": String,
+    "name": String,
+    "mimeType": String
+}*/
+```

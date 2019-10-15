@@ -246,7 +246,7 @@ class Worksheet {
 	}
 }
 
-class Google {
+class gAPI {
 	constructor(client_id, token){
 		let client_secret;
 		if (typeof client_id === 'object') {
@@ -258,7 +258,7 @@ class Google {
 	}
 }
 
-class Drive extends Google {
+class Drive extends gAPI {
 	constructor(client_id, token) {
 		super(client_id, token);
 		this.drive = google.drive({version: "v3", auth: this.oauth}).files;
@@ -276,7 +276,7 @@ class Drive extends Google {
 			});
 		});
 	}
-	setFile(fileId, properties, fields) {
+	setFile(fileId, properties) {
 		let request = {
 			fileId: fileId, 
 			resource: properties,
@@ -309,7 +309,7 @@ class Drive extends Google {
 	}
 }
 
-class Spreadsheets extends Google {
+class Spreadsheets extends gAPI {
 	constructor(client_id, token) {
 		super(client_id, token);
 		this.spreadsheets = google.sheets({version: "v4", auth: this.oauth}).spreadsheets;
