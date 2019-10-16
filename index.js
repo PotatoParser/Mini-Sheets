@@ -101,6 +101,7 @@ class Sheet {
 		}
 		if (sheetGridData === true) sheetGridData = [[]];
 		sheetGridData = sheetGridData || [[]];
+		if (!(sheetGridData instanceof Array)) throw new Error('Grid data must be an array');
 		if (!sheetGridData[0]) throw new Error('Incomplete grid data');
 		let columnCount = sheetGridData[0].length;
 		for (let i = 1; i < sheetGridData.length; i++) {
@@ -218,6 +219,8 @@ class Worksheet {
 	}
 	static create(title, gridData = {}, metadata = {}){
 		if (!title) throw new Error('Missing Spreadsheet Title');
+		if (typeof gridData !== 'object') throw new TypeError('gridData must be an object');
+		if (typeof metadata !== 'object') throw new TypeError('gridData must be an object');		
 		let generatedWorksheet = new Worksheet();
 		generatedWorksheet.worksheetTitle = title;
 		for (let sheetTitle in gridData) {
@@ -258,7 +261,10 @@ class gAPI {
 		if (typeof client_id === 'object') {
 			client_secret = client_id.client_secret;
 			client_id = client_id.client_id;
+		} else if (typeof client_id !== 'string') {
+			throw new TypeError('Invalid client ID or client object')
 		}
+		if (typeof token !== 'object') throw new TypeError('Token must be an object');
 		this.oauth = new google.auth.OAuth2(client_id, client_secret);
 		this.oauth.setCredentials(token);
 	}
@@ -271,6 +277,8 @@ class Drive extends gAPI {
 		this.drive = google.drive({version: "v3", auth: this.oauth}).files;
 	}
 	getFile(fileId) {
+		if (fileId === undefined) throw new Error('Must include file ID'); 
+		if (typeof fileId !== 'string') throw new TypeError('File ID must be a string'); 		
 		return new Promise((resolve, reject)=>{
 			this.drive.get({fileId: fileId, fields: '*'}, (err, res)=>{
 				if (err) {
@@ -283,12 +291,17 @@ class Drive extends gAPI {
 			});
 		});
 	}
-	setFile(fileId, properties) {
+	setFile(fileId, properties = {}) {
+		if (fileId === undefined) throw new Error('Must include file ID'); 
+		if (typeof fileId !== 'string') throw new TypeError('File ID must be a string'); 		
 		let request = {
 			fileId: fileId, 
 			resource: properties,
 			fields: '*'
 		};
+		if (empty(properties)) {
+			console.warn('\x1b[33m%s\x1b[0m', 'Empty properties object');
+		}
 		return new Promise((resolve, reject)=>{
 			this.drive.update(request, (err, res)=>{
 				if (err) {
@@ -302,6 +315,8 @@ class Drive extends gAPI {
 		});		
 	}
 	async deleteFile(fileId) {
+		if (fileId === undefined) throw new Error('Must include file ID'); 
+		if (typeof fileId !== 'string') throw new TypeError('File ID must be a string'); 		
 		return await new Promise((resolve, reject)=>{
 			this.drive.delete({fileId: fileId}, (err, res)=>{
 				if (err) {
@@ -323,6 +338,8 @@ class Spreadsheets extends gAPI {
 		this.spreadsheets = google.sheets({version: "v4", auth: this.oauth}).spreadsheets;
 	}
 	createSpreadsheet(title, gridData, metadata) {
+		title = title || "Untitled Spreadsheet";
+		if (typeof title !== 'string') throw new TypeError('Spreadsheet title must be a string');
 		return new Promise((resolve, reject)=>{
 			this.spreadsheets.create({resource: Worksheet.create(title, gridData, metadata).toSpreadsheetObject()}, (err, res)=>{
 				if (err) reject(err);
@@ -331,6 +348,8 @@ class Spreadsheets extends gAPI {
 		});
 	}
 	getRawSpreadsheet(spreadsheetId) {
+		if (spreadsheetId === undefined) throw new Error('Must include spreadsheet ID'); 
+		if (typeof spreadsheetId !== 'string') throw new TypeError('Spreadsheet ID must be a string'); 
 		return new Promise((resolve, reject)=>{
 			this.spreadsheets.get({spreadsheetId: spreadsheetId, includeGridData: false}, (err, res)=>{
 				if (err) reject(err);
@@ -339,6 +358,9 @@ class Spreadsheets extends gAPI {
 		});
 	}
 	async getSpreadsheet(spreadsheetId, _options = {}){
+		if (spreadsheetId === undefined) throw new Error('Must include spreadsheet ID'); 
+		if (typeof spreadsheetId !== 'string') throw new TypeError('Spreadsheet ID must be a string'); 		
+		if (typeof _options !== 'object') throw new TypeError('Options must be an object');
 		_options = validate(_options, {include: []});
 		if (!(_options.include instanceof Array)) _options.include = [_options.include];
 		if (_options.include.length > 0) {
@@ -373,6 +395,8 @@ class Spreadsheets extends gAPI {
 		}
 	}
 	async setSpreadsheet(spreadsheetId, gridData, metadata){
+		if (spreadsheetId === undefined) throw new Error('Must include spreadsheet ID'); 
+		if (typeof spreadsheetId !== 'string') throw new TypeError('Spreadsheet ID must be a string'); 		
 		let preSpreadsheet = await this.getRawSpreadsheet(spreadsheetId),
 			newSpreadsheet = Worksheet.create(preSpreadsheet.worksheetTitle, gridData, metadata);
 		let requests = [];

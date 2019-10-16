@@ -31,7 +31,8 @@ minisheets.createSpreadsheet(spreadsheetTitle, {sheet1: [[1]]})
 > Initialize gAPI (parent class of Drive & Spreadsheets)
 
 Arguments:
-+ `clientId`<**String**>: string of client id
++ `clientId`<**String**\|**Object**>: string of client id
+    + Can be an <**Object**> containing a client_id and client_secret
 + `token`<**Object**>: authentication token object
 
 
