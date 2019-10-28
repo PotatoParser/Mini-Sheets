@@ -20,12 +20,21 @@ function validate(originalObj, verifyObj) {
 }
 
 
+function parseable(str){
+	try {
+		return JSON.parse(str);
+	} catch(e) {
+		return false;
+	}
+}
+
+
 class SingleMetadata {
 	constructor(key, value, id, parentMetadata) {
 		this.key = key;
 		this.value = value;
 		if (this.value !== undefined && typeof this.value === 'string') {
-			if (typeof JSON.parse(this.value) === 'object') this.value = JSON.parse(this.value);
+			if (typeof parseable(this.value) === 'object') this.value = JSON.parse(this.value);
 			else if (this.value === 'true' || this.value === 'false') this.value = JSON.parse(this.value);
 			else if (!isNaN(Number(this.value))) this.value = Number(this.value);
 		}
@@ -282,7 +291,7 @@ class Drive extends gAPI {
 		return new Promise((resolve, reject)=>{
 			this.drive.get({fileId: fileId, fields: '*'}, (err, res)=>{
 				if (err) {
-					if (err.errors[0].reason === 'notFound') {
+					if (err.errors && err.errors[0].reason === 'notFound') {
 						console.warn('\x1b[33m%s\x1b[0m', `File: '${fileId}' Not Found`);
 						resolve(null);
 					} else reject(err);
@@ -320,7 +329,7 @@ class Drive extends gAPI {
 		return await new Promise((resolve, reject)=>{
 			this.drive.delete({fileId: fileId}, (err, res)=>{
 				if (err) {
-					if (err.errors[0].reason === 'notFound') {
+					if (err.errors && err.errors[0].reason === 'notFound') {
 						console.warn('\x1b[33m%s\x1b[0m', `File: '${fileId}' Not Found`);
 						resolve(false);
 					} else reject(err);
