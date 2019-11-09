@@ -204,6 +204,7 @@ class Worksheet {
 		for (let i = 0; i < worksheetObj.sheets.length; i++) {
 			let title = worksheetObj.sheets[i].properties.title;
 			this.sheets[title] = Sheet.parse(worksheetObj.sheets[i]);
+			this.maxId = Math.max(this.sheets[title].sheetId, this.maxId);
 			this.metadata[title] = Metadata.parse(worksheetObj.sheets[i]);
 		}
 	}
@@ -229,7 +230,7 @@ class Worksheet {
 	static create(title, gridData = {}, metadata = {}){
 		if (!title) throw new Error('Missing Spreadsheet Title');
 		if (typeof gridData !== 'object') throw new TypeError('gridData must be an object');
-		if (typeof metadata !== 'object') throw new TypeError('gridData must be an object');		
+		if (typeof metadata !== 'object') throw new TypeError('metaData must be an object');		
 		let generatedWorksheet = new Worksheet();
 		generatedWorksheet.worksheetTitle = title;
 		for (let sheetTitle in gridData) {
@@ -432,7 +433,7 @@ class Spreadsheets extends gAPI {
 			if(newMeta) newMeta.fillEmpty(preMeta);
 			if (newSheet && !preSheet) {
 				let tempId = preSpreadsheet.createSheetId();
-				newSheet.sheetId = tempId;			
+				newSheet.sheetId = tempId;
 				requests.push({
 					addSheet: {
 						properties: newSheet.toSheetObject().properties
@@ -441,6 +442,9 @@ class Spreadsheets extends gAPI {
 			}
 			if (newMeta) {
 				for (let metaKey in newMeta.data) {
+					if (newSheet && !preSheet) {
+						newMeta.data[metaKey].parent.path = newSheet.sheetId;
+					}
 					if (newMeta.data[metaKey].value === undefined && newMeta.data[metaKey].id) {
 						requests.push({
 							deleteDeveloperMetadata: {
